@@ -2,16 +2,21 @@ mod popup_window;
 mod selection_monitor;
 mod translator;
 
+use global_hotkey::GlobalHotKeyEvent;
+use global_hotkey::{
+    hotkey::{Code, HotKey, Modifiers},
+    GlobalHotKeyManager,
+};
 use popup_window::PopupWindow;
 use selection_monitor::SelectionMonitor;
+use std::sync::mpsc;
 use tokio::time::{sleep, Duration};
 use tracing::info;
 use tracing_subscriber;
 use translator::Translator;
 use x11rb::connection::Connection;
-use x11rb::protocol::xproto::{self, ConnectionExt};
+use x11rb::protocol::xproto::ConnectionExt;
 use x11rb::rust_connection::RustConnection;
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
@@ -23,44 +28,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Application starting");
 
-    let monitor = SelectionMonitor::new()?;
-    let translator = Translator::new(std::env::var("DASHSCOPE_API_KEY")?);
-    let popup = PopupWindow::new();
+    let (tx, rx) = mpsc::channel::<String>();
+    let selection_manager = SelectionMonitor::new(rx)?;
+    let translator_manager = Translator::new(std::env::var("DASHSCOPE_API_KEY")?);
+    let popup_manager = PopupWindow::new(tx);
+    let hot_key_manager = GlobalHotKeyManager::new().unwrap();
 
-    let mut last_selection = String::new();
+    // construct the hotkey
+    let hotkey = HotKey::new(Some(Modifiers::SHIFT), Code::KeyD);
+
+    // register it
+    hot_key_manager.register(hotkey)?;
 
     loop {
-        info!("Checking for new selection");
-        if let Some(selection) = monitor.get_selection().await {
-            info!("Selected text: {}", selection);
-            if selection != last_selection {
-                last_selection = selection.clone();
+        if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
+            println!("{:?}", event);
+            let selection = match selection_manager.get_selection().await {
+                Some(text) => text,
+                None => continue,
+            };
+            let target_lang = if is_chinese(&selection) {
+                "English"
+            } else {
+                "Chinese"
+            };
+            info!("Translating to: {}", target_lang);
+            match translator_manager.translate(&selection, target_lang).await {
+                Ok(translation) => {
+                    if let Some((x, y)) = get_mouse_position() {
+                        info!("Showing popup at ({}, {})", x, y);
 
-                let target_lang = if is_chinese(&selection) {
-                    "English"
-                } else {
-                    "Chinese"
-                };
-                info!("Translating to: {}", target_lang);
-                match translator.translate(&selection, target_lang).await {
-                    Ok(translation) => {
-                        if let Some((x, y)) = get_mouse_position() {
-                            info!("Showing popup at ({}, {})", x, y);
-                            popup.show_at_mouse(&translation, x + 10, y + 10);
-                        }
+                        popup_manager.show_at_mouse(&translation, x + 10, y + 10);
                     }
-                    Err(e) => eprintln!("Translation error: {}", e),
                 }
+                Err(e) => eprintln!("Translation error: {}", e),
             }
-        } else {
-            // 没有选中文本时隐藏弹窗
-            popup.hide();
-            last_selection.clear();
         }
+
         while gtk::events_pending() {
             gtk::main_iteration_do(false);
         }
-        sleep(Duration::from_millis(3000)).await;
+        sleep(Duration::from_millis(300)).await;
     }
 }
 

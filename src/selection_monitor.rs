@@ -1,17 +1,47 @@
 // src/selection_monitor.rs
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tracing::info;
 use x11_clipboard::Clipboard;
 
 pub struct SelectionMonitor {
-    clipboard: Clipboard,
+    clipboard: Arc<Mutex<Clipboard>>,
+    // message_rx: std::sync::mpsc::Receiver<String>,
 }
 
 impl SelectionMonitor {
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(
+        message_rx: std::sync::mpsc::Receiver<String>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let clipboard = Clipboard::new()?;
-        Ok(Self { clipboard })
+        let s = Self {
+            clipboard: Arc::new(Mutex::new(clipboard)),
+        };
+        let s_clone = s.clipboard.clone();
+        tokio::spawn(async move {
+            loop {
+                if let Ok(message) = message_rx.try_recv() {
+                    {
+                        let clipboard = s_clone.lock().unwrap();
+                        match clipboard.store(
+                            clipboard.getter.atoms.clipboard,
+                            clipboard.getter.atoms.utf8_string,
+                            message.clone(),
+                        ) {
+                            Ok(_) => {
+                                info!("Text stored to clipboard");
+                            }
+                            Err(err) => {
+                                info!("Failed to store text to clipboard: {:?}", err);
+                            }
+                        }
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        });
+        Ok(s)
     }
 
     pub async fn get_selection_fallback(&self) -> Option<String> {
@@ -51,10 +81,11 @@ impl SelectionMonitor {
         info!("Attempting to read PRIMARY clipboard");
 
         // 增加超时时间到 500ms
-        match self.clipboard.load(
-            self.clipboard.getter.atoms.primary,
-            self.clipboard.getter.atoms.utf8_string,
-            self.clipboard.getter.window,
+        let clipboard = self.clipboard.lock().unwrap();
+        match clipboard.load(
+            clipboard.getter.atoms.primary,
+            clipboard.getter.atoms.utf8_string,
+            clipboard.getter.window,
             Duration::from_millis(5000),
         ) {
             Ok(text) => match String::from_utf8(text) {
