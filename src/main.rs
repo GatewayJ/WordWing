@@ -57,7 +57,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(translation) => {
                     if let Some((x, y)) = get_mouse_position() {
                         info!("Showing popup at ({}, {})", x, y);
-
                         popup_manager.show_at_mouse(&translation, x + 10, y + 10);
                     }
                 }
@@ -88,21 +87,11 @@ fn get_mouse_position() -> Option<(i32, i32)> {
 }
 
 fn get_mouse_position_impl() -> Result<Option<(i32, i32)>, Box<dyn std::error::Error>> {
-    // 创建 X11 连接
     let (conn, screen_num) = RustConnection::connect(None)?;
     let screen = &conn.setup().roots[screen_num];
 
-    // 查询鼠标指针位置
     let reply = conn.query_pointer(screen.root)?.reply()?;
 
-    // 返回根窗口中的鼠标坐标
     Ok(Some((reply.root_x as i32, reply.root_y as i32)))
 }
-//  yum install openssl-devel
-//  sudo yum install pango-devel
-// sudo yum install cairo-devel
-//  export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig"
-//  yum install glib2-devel cmake gcc-c++  cairo-gobject-devel  sudo dnf install gtk3-devel pango-devel atk-devel cairo-devel gdk-pixbuf2-devel glib2-devel
 
-// find /usr -name "gdk-3.0.pc" 2>/dev/null
-// export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib64/pkgconfig/gdk-3.0.pc:/usr/lib64/pkgconfig/atk.pc"
