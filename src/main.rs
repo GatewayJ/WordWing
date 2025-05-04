@@ -1,5 +1,6 @@
 mod popup_window;
 mod selection_monitor;
+mod text_replacer;
 mod translator;
 
 use global_hotkey::GlobalHotKeyEvent;
@@ -10,6 +11,8 @@ use global_hotkey::{
 use popup_window::PopupWindow;
 use selection_monitor::SelectionMonitor;
 use std::sync::mpsc;
+use text_replacer::TextReplacer;
+use tokio::sync::mpsc as tokio_mpsc;
 use tokio::time::{sleep, Duration};
 use tracing::info;
 use tracing_subscriber;
@@ -29,9 +32,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Application starting");
 
     let (tx, rx) = mpsc::channel::<String>();
+    let (replace_tx, mut replace_rx) = tokio_mpsc::channel::<String>(100);
     let selection_manager = SelectionMonitor::new(rx)?;
     let translator_manager = Translator::new(std::env::var("DASHSCOPE_API_KEY")?);
-    let popup_manager = PopupWindow::new(tx);
+    let popup_manager = PopupWindow::new(tx, replace_tx);
+    let text_replacer = TextReplacer::new();
     let hot_key_manager = GlobalHotKeyManager::new().unwrap();
 
     // construct the hotkey
@@ -39,6 +44,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // register it
     hot_key_manager.register(hotkey)?;
+
+    // 启动替换任务
+    let replacer_clone = text_replacer;
+    let (error_tx_sender, mut error_rx_async) = tokio_mpsc::channel::<String>(10);
+    tokio::spawn(async move {
+        while let Some(translation) = replace_rx.recv().await {
+            info!("Received replace request: {}", translation);
+            let error_msg = match replacer_clone.replace_selection(&translation).await {
+                Ok(_) => {
+                    info!("Text replaced successfully");
+                    None
+                }
+                Err(e) => {
+                    let msg = e.to_string();
+                    eprintln!("替换失败: {}", msg);
+                    Some(format!("替换失败: {}", msg))
+                }
+            };
+            // 在 await 之前，错误对象已经被 drop
+            if let Some(msg) = error_msg {
+                let _ = error_tx_sender.send(msg).await;
+            }
+        }
+    });
 
     loop {
         if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
@@ -61,6 +90,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 Err(e) => eprintln!("Translation error: {}", e),
+            }
+        }
+
+        // 处理错误消息
+        if let Ok(error_msg) = error_rx_async.try_recv() {
+            if let Some((x, y)) = get_mouse_position() {
+                popup_manager.show_error_internal(&error_msg, x + 10, y + 10);
             }
         }
 

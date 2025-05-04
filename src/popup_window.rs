@@ -1,14 +1,20 @@
 // src/popup_window.rs
 use gtk::prelude::*;
 use glib;
+use tokio::sync::mpsc as tokio_mpsc;
 use tracing::info;
 pub struct PopupWindow {
     window: gtk::Window,
     label: gtk::Label,
+    #[allow(dead_code)]
+    replace_tx: tokio_mpsc::Sender<String>,
 }
 
 impl PopupWindow {
-    pub fn new(tx: std::sync::mpsc::Sender<String>) -> Self {
+    pub fn new(
+        tx: std::sync::mpsc::Sender<String>,
+        replace_tx: tokio_mpsc::Sender<String>,
+    ) -> Self {
         gtk::init().expect("Failed to initialize GTK");
 
         let window = gtk::Window::new(gtk::WindowType::Popup);
@@ -16,7 +22,7 @@ impl PopupWindow {
         window.set_decorated(false);
         window.set_keep_above(true);
         let css_provider = gtk::CssProvider::new();
-        css_provider.load_from_data(
+        let _ = css_provider.load_from_data(
             b"
             window.popup-window {
                 border-radius: 15px;
@@ -56,12 +62,17 @@ impl PopupWindow {
         let copy_button = gtk::Button::with_label("复制");
         copy_button.set_size_request(80, -1);
 
+        // 创建替换按钮
+        let replace_button = gtk::Button::with_label("替换");
+        replace_button.set_size_request(80, -1);
+
         // 创建关闭按钮
         let close_button = gtk::Button::with_label("关闭");
         close_button.set_size_request(80, -1);
 
         // 将按钮添加到按钮盒中
         button_box.add(&copy_button);
+        button_box.add(&replace_button);
         button_box.add(&close_button);
 
         // 将组件添加到主布局中
@@ -75,7 +86,6 @@ impl PopupWindow {
         let drag_start_coords: std::rc::Rc<std::cell::RefCell<Option<(f64, f64)>>> = 
             std::rc::Rc::new(std::cell::RefCell::new(None));
         let drag_start_coords_clone = drag_start_coords.clone();
-        let window_clone = window.clone();
         
         // 鼠标按下事件：记录起始坐标
         window.connect_button_press_event(move |_, event| {
@@ -87,7 +97,6 @@ impl PopupWindow {
         });
         
         let drag_start_coords_clone2 = drag_start_coords.clone();
-        let window_clone2 = window.clone();
         
         // 鼠标移动事件：更新窗口位置
         window.connect_motion_notify_event(move |window, event| {
@@ -132,14 +141,38 @@ impl PopupWindow {
         let label_clone = label.clone();
         copy_button.connect_clicked(move |_| {
             let text = label_clone.text();
-            info!("{}", text);
+            info!("Copying text: {}", text);
             tx.send(text.to_string()).expect("Failed to send text");
         });
 
-        Self { window, label }
+        // 连接替换按钮的点击事件
+        let label_clone2 = label.clone();
+        let w_clone2 = window.clone();
+        let replace_tx_clone = replace_tx.clone();
+        replace_button.connect_clicked(move |_| {
+            let text = label_clone2.text();
+            info!("Replace button clicked, text: {}", text);
+            // 先隐藏弹窗，让焦点回到原始窗口
+            w_clone2.hide();
+            // 等待一小段时间，确保弹窗关闭且焦点回到原始窗口
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            // 然后发送替换请求
+            if let Err(e) = replace_tx_clone.try_send(text.to_string()) {
+                eprintln!("Failed to send replace request: {}", e);
+            } else {
+                info!("Replace request sent successfully");
+            }
+        });
+
+        Self {
+            window,
+            label,
+            replace_tx,
+        }
     }
 
     pub fn show_at_mouse(&self, text: &str, x: i32, y: i32) {
+        // 使用 set_text 会自动清除之前的 markup
         self.label.set_text(text);
         let (width, height) = self.window.size_request();
         // 修复GTK调整窗口大小的错误，确保宽度和高度大于0
@@ -149,4 +182,17 @@ impl PopupWindow {
         self.window.move_(x, y);
         self.window.show_all();
     }
+
+    /// 显示错误消息
+    pub fn show_error_internal(&self, error_msg: &str, x: i32, y: i32) {
+        let error_text = format!("⚠️ {}", error_msg);
+        self.label.set_markup(&format!("<span color='red'>{}</span>", error_text));
+        let (width, height) = self.window.size_request();
+        let width = if width > 0 { width } else { 300 };
+        let height = if height > 0 { height } else { 100 };
+        self.window.resize(width, height);
+        self.window.move_(x, y);
+        self.window.show_all();
+    }
+
 }
