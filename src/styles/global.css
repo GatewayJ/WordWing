@@ -1,0 +1,441 @@
+/* WordWing — tokens from DESIGN.md (Warm Editorial) */
+
+:root {
+  color-scheme: light;
+  --bg: #f4f0e8;
+  --surface: #fffcf7;
+  --text: #1c1917;
+  --muted: #78716c;
+  --border: #e7e0d4;
+  --primary: #c2410c;
+  --primary-hover: #9a3412;
+  --link: #7c2d12;
+  --link-hover: #9a3412;
+  --accent-secondary: #b45309;
+  --success: #4d7c0f;
+  --warning: #b45309;
+  --error: #b91c1c;
+  --info: #0c4a6e;
+  --zebra: #f0ebe3;
+  --focus-ring: rgba(194, 65, 12, 0.45);
+  --font-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --transition: 240ms cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #141210;
+  --surface: #1c1917;
+  --text: #fafaf9;
+  --muted: #a8a29e;
+  --border: #292524;
+  --primary: #ea580c;
+  --primary-hover: #fdba74;
+  --link: #fdba74;
+  --link-hover: #fed7aa;
+  --zebra: #26201c;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition: 40ms opacity ease;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+a {
+  color: var(--link);
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--link-hover);
+}
+
+button {
+  font-family: var(--font-sans);
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.app-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Top bar */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
+  flex-shrink: 0;
+}
+
+.top-bar__brand {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.top-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.icon-btn:hover {
+  border-color: var(--muted);
+  background: var(--surface);
+}
+
+.icon-btn[data-active="true"] {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Sidebar */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg);
+  border-right: 2px solid var(--border);
+  padding: 12px 8px 16px;
+  overflow-y: auto;
+}
+
+.sidebar nav {
+  flex: 1;
+}
+
+.sidebar__group {
+  margin-bottom: 18px;
+}
+
+.sidebar__group:last-child {
+  margin-bottom: 0;
+}
+
+.sidebar__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 12px 6px;
+}
+
+.sidebar__label--current {
+  color: var(--text);
+}
+
+.sidebar__link {
+  display: block;
+  padding: 9px 12px 9px 20px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: none;
+  margin-bottom: 2px;
+  transition: color var(--transition), box-shadow var(--transition), background var(--transition);
+}
+
+.sidebar__link:hover {
+  color: var(--text);
+}
+
+.sidebar__link--active {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: 0 0 0 2px var(--border);
+}
+
+.sidebar__footer {
+  margin-top: auto;
+  padding: 12px 12px 4px;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar__footer-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--link);
+}
+
+/* Narrow: drawer */
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 719px) {
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 25, 23, 0.35);
+    z-index: 90;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    width: min(280px, 88vw);
+    transform: translateX(-100%);
+    transition: transform var(--transition);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .sidebar--open {
+    transform: translateX(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar {
+      transition: none;
+    }
+  }
+}
+
+.main-area {
+  flex: 1;
+  min-width: 0;
+  padding: 24px 20px 48px;
+  overflow-y: auto;
+}
+
+.main-area__inner {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.page-title {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 400;
+  margin: 0 0 12px;
+  letter-spacing: -0.02em;
+}
+
+.page-lead {
+  color: var(--muted);
+  margin: 0 0 24px;
+  max-width: 38rem;
+}
+
+.page-lead-kbd {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
+  max-width: 42rem;
+}
+
+.card p {
+  margin: 0 0 12px;
+}
+
+.card p:last-child {
+  margin-bottom: 0;
+}
+
+/* 生词表 zebra — DESIGN.md */
+.data-table-wrap {
+  overflow-x: auto;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.data-table th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--bg);
+}
+
+.data-table tbody tr:nth-child(even) {
+  background: var(--zebra);
+}
+
+.data-table tbody tr:hover {
+  background: color-mix(in srgb, var(--zebra) 65%, var(--surface));
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table .cell-muted {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.data-table .cell-word {
+  font-weight: 600;
+  max-width: 14rem;
+  word-break: break-word;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.btn-icon:hover {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.settings-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.settings-select {
+  width: 100%;
+  max-width: 28rem;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.settings-save-btn {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+}
+
+.settings-save-btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.settings-save-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

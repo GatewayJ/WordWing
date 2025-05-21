@@ -1,164 +1,92 @@
 # WordWing
 
-WordWing 是一个智能文本翻译工具，可以自动检测选中的文本并实时翻译成目标语言。目前支持中英文互译。
+个人桌面助手：**英语**（生词、复习、周短文）与 **Todo**（条目、定时），数据本地优先。产品形态与视觉以根目录 **`DESIGN.md`** 为准。
 
-## 功能特性
+## 技术栈（当前）
 
-- 🔄 自动检测选中文本
-- 🌍 中英文互译（中文↔英文）
-- 💬 弹窗显示翻译结果
-- 🖱️ 翻译窗口显示在鼠标附近
-- 📋 基于 X11 剪贴板的文本监控
-- ✏️ 原地替换被翻译的文本（点击"替换"按钮）
+| 部分 | 说明 |
+|------|------|
+| **主应用** | [Tauri 2](https://tauri.app/) + **React** + **TypeScript** + **Vite** |
+| **路由** | `react-router-dom`，与 `DESIGN.md` 中 IA 一致：`/english/*`、`/todo/*`、`/settings` |
+| **字体** | `@fontsource` 打包（Instrument Serif + DM Sans），符合「自托管、不依赖外网 CDN」方向 |
+| **旧原型** | `legacy-gtk/` — 原 GTK + X11 + 全局热键翻译，已不再作为主开发线 |
 
-## TODO
-- [] 添加更多语言支持
+## 划词翻译与生词（已实现）
 
-- [X] 复制翻译文本
-- [X] 触发翻译的快捷命令
-- [X] 原地替换被翻译的文本
+- **全局快捷键**（默认 **Ctrl+Shift+1**，与数字行 **1 / !** 同键）：读取 X11 **PRIMARY**（划词），为空则读 **剪贴板**；调用 DashScope 翻译后，在 **`translate-overlay`** 浮层展示。可在应用内 **设置 → 翻译快捷键** 换预设并立即生效（配置写入 `app_settings.json`）。
+- **浮层**：「收藏」写入本地 `vocabulary.json`（应用数据目录，与 bundle identifier 对应，如 `~/.local/share/com.wordwing.desktop/`）；「用剪贴板再试」「重试」已接命令。
+- **生词页**：表格 **zebra** 行样式；监听 `vocabulary-changed`，与浮层收藏联动刷新；支持删除单行。
 
-- [] 单词收藏
-- [] 单词训练
-## 系统要求
+需安装 **`xclip`**，并配置环境变量 **`DASHSCOPE_API_KEY`**（见设置页说明）。
 
-- Linux 系统（支持 X11）
-- Rust 开发环境
-- GTK3 开发库
-- 网络连接（用于调用翻译 API）
-- xclip（用于剪贴板操作）
-- xdotool（用于文本替换功能，可选但推荐安装）
+**无弹窗 / 快捷键无效：** Linux **Wayland** 下 `global-hotkey` 往往无法注册全局快捷键；请用生词页 **「打开翻译浮层（划词）」** 或先复制文本再走剪贴板。后端已用 `emit_to(translate-overlay)` 投递事件并先 `show` 再发状态。
 
-## 安装依赖
+## 环境要求
 
-###  Fedora/CentOS/RHEL 系统
-### 安装 Rust
-```
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-### 安装系统依赖
-```
-sudo dnf install gtk3-devel pango-devel atk-devel cairo-devel gdk-pixbuf2-devel glib2-devel openssl-devel xclip xdotool
+- **Node.js** ≥ 20.19（或 22.12+），以满足 Vite 7 的 engine 要求；略低版本可能仍能构建，但会收到警告。
+- **Rust** stable、`cargo`（建议 [rustup](https://rustup.rs/)）
+- **Linux 桌面：** 构建 Tauri 需系统依赖（WebKitGTK 等），参见 [Tauri Linux 前置条件](https://tauri.app/start/prerequisites/)。
+
+### Ubuntu / Debian：一键安装系统依赖
+
+在仓库根目录执行（需要 `sudo` 密码）：
+
+```bash
+sudo bash scripts/install-ubuntu-tauri-deps.sh
 ```
 
-注意：`xdotool` 用于文本替换功能。如果未安装，替换功能将回退到使用剪贴板方式，但可能在某些应用中无法正常工作。
-### 构建和运行
-#### 克隆项目
-```
-git clone <repository-url>
-cd WordWing
-```
-#### 构建项目
-```
-cargo build --release
+安装完成后即可 `npm run tauri:dev`。若构建仍报缺少 `.pc` 或 `webkit2gtk`，请确认已安装 `libwebkit2gtk-4.1-dev` 与 `pkg-config`。
+
+若 `apt-get update` 因 **v2rayA 源**（`apt.v2raya.org`）报 **EXPKEYSIG / 没有数字签名**，与 WordWing 无关；可先禁用该源再装依赖：
+
+```bash
+sudo WORDWING_FIX_V2RAYA=1 bash scripts/install-ubuntu-tauri-deps.sh
 ```
 
-#### 运行程序
+或手动编辑 `/etc/apt/sources.list.d/` 下对应 `.list`，在 `deb` 行首加 `#`，执行 `sudo apt update` 后再运行安装脚本。
+
+## 开发
+
+```bash
+npm install
+npm run dev          # 仅前端（浏览器 http://localhost:1420）
 ```
+
+在 **未设置 `CI=1`** 的环境下运行 Tauri（部分环境会把 `CI=1` 传给 CLI 导致参数错误）。仓库已提供脚本：
+
+```bash
+npm run tauri:dev
+```
+
+等价于 `env -u CI tauri dev`。构建桌面包：
+
+```bash
+npm run tauri:build
+```
+
+## 构建
+
+```bash
+npm run build        # 前端产物 → dist/
+npm run tauri:build  # 完整桌面包（需系统 WebKit/GTK 依赖）
+```
+
+## 旧版 GTK 原型
+
+```bash
+cd legacy-gtk
 cargo run
 ```
-或者直接运行编译后的二进制文件：
-```
-./target/release/WordWing
-```
 
-## 桌面集成
-### 创建桌面启动器
-#### 创建 WordWing.desktop 文件：
-```
-ini
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=WordWing Translator
-Comment=Translate selected text automatically
-Exec=sh -c 'cd /local/bin/WordWing && DASHSCOPE_API_KEY={DASHSCOPE_API_KEY} cargo run'
-Icon=accessories-dictionary
-Terminal=false
-Categories=Utility;TextTools;
-Keywords=translation;clipboard;text;chinese;english;
-```
-#### 安装桌面启动器
-```
-# 复制 desktop 文件到系统目录
-sudo cp WordWing.desktop /usr/share/applications/
-# 或者复制到用户目录
-cp WordWing.desktop ~/.local/share/applications/
-更新图标缓存（可选）
-bash
-# 更新系统图标缓存
-sudo gtk-update-icon-cache /usr/share/icons/hicolor
-# 或者更新用户图标缓存
-gtk-update-icon-cache ~/.local/share/icons
-```
-#### 配置
-```
-export DASHSCOPE_API_KEY="YOUR_API_KEY"
-```
+需 GTK3、X11、`DASHSCOPE_API_KEY` 等；详见旧文档与 `legacy-gtk/Cargo.toml`。
 
-## 故障排除
-### 常见问题
-1. 无法检测选中文本
+## 文档
 
-- 确保在 X11 环境下运行
-- 检查是否有其他剪贴板管理器冲突
-- 确认程序有访问 X11 的权限
-2.  弹窗不显示
+- **`DESIGN.md`** — 设计系统、信息架构、组件与无障碍约定
+- **`CLAUDE.md`** — 改 UI 前必读 `DESIGN.md`
+- **`docs/plan-design-review.md`**、**`docs/plan-eng-review.md`** — 设计/工程审查记录
 
-- 确保 GTK 环境正常
-- 检查是否有足够的权限显示窗口
-- 查看日志输出以获取更多信息
-3. 编译错误
+## 后续实现（路线图摘要）
 
-- 确保所有系统依赖已正确安装
-- 检查 PKG_CONFIG_PATH 环境变量设置
-- 运行 pkg-config 命令验证库文件是否存在
-### 调试
-启用详细日志输出：
-
-```
-RUST_LOG=debug cargo run
-```
-## 技术架构
-- 语言: Rust
--异步运行时: Tokio
-- GUI 框架: GTK3
-- 剪贴板监控: x11-clipboard
-- HTTP 客户端: reqwest
-- 翻译服务: 阿里云 DashScope API
-
-## 项目结构
-```
-.
-├── src/
-│   ├── main.rs              # 主程序入口
-│   ├── selection_monitor.rs # 文本选中监控模块
-│   ├── translator.rs        # 翻译 API 接口模块
-│   └── popup_window.rs      # 弹窗显示模块
-├── Cargo.toml               # 项目依赖配置
-├── README.md                # 项目说明文档
-└── WordWing.desktop         # 桌面启动器文件
-```
-## 开发
-### VS Code 配置
-
-项目包含 VS Code 调试配置：
-
-- .vscode/launch.json - 调试配置
-- .vscode/tasks.json - 构建任务
-
-### 依赖库说明
-- gtk 和 gdk - 图形界面库
-- tokio - 异步运行时
-- reqwest - HTTP 客户端
-- x11-clipboard - X11 剪贴板访问
-- tracing 和 tracing-subscriber - 日志系统
-- x11rb - X11 协议实现
-
-## 许可证
-
-MIT License
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request 来改进这个项目。
+- LevelDB、划词浮层、X11 `SelectionSource` 与 Tauri 命令层（见 `docs/plan-eng-review.md`）
+- CI：`cargo fmt/clippy/test`、前端 `build`
