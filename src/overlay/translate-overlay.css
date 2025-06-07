@@ -19,12 +19,23 @@ body {
 
 .translate-overlay__head {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
+  align-items: stretch;
+  gap: 4px;
+  padding: 8px 8px 8px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   flex-shrink: 0;
+}
+
+.translate-overlay__drag-region {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  margin: -8px 0 -8px -12px;
+  padding: 8px 8px 8px 12px;
+  cursor: default;
+  user-select: none;
 }
 
 .translate-overlay__title {

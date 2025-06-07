@@ -67,6 +67,20 @@ pub fn validate_preset_id(preset: &str) -> Result<(), String> {
     preset_to_shortcut(preset).map(|_| ())
 }
 
+/// GTK / XDG GlobalShortcuts 门户使用的 accelerator 字符串（Wayland）。
+/// 参见 GTK `gtk_accelerator_parse` 风格：`<Control>`、`<Shift>`、`<Alt>`、`<Super>`。
+pub fn preset_to_portal_preferred_trigger(preset: &str) -> Option<&'static str> {
+    match preset {
+        "ctrl_shift_1" => Some("<Control><Shift>1"),
+        "meta_shift_t" => Some("<Super><Shift>t"),
+        "ctrl_shift_d" => Some("<Control><Shift>d"),
+        "ctrl_alt_shift_t" => Some("<Control><Alt><Shift>t"),
+        "alt_shift_t" => Some("<Alt><Shift>t"),
+        "ctrl_shift_y" => Some("<Control><Shift>y"),
+        _ => None,
+    }
+}
+
 pub fn preset_to_shortcut(preset: &str) -> Result<Shortcut, String> {
     match preset {
         "meta_shift_t" => Ok(Shortcut::new(

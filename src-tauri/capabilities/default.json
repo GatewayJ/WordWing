@@ -5,6 +5,9 @@
   "windows": ["main", "translate-overlay"],
   "permissions": [
     "core:default",
-    "global-shortcut:default"
+    "core:window:allow-hide",
+    "core:window:allow-start-dragging",
+    "global-shortcut:default",
+    "allow-wordwing-ipc"
   ]
 }

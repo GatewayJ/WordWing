@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
+import { CollectionPage } from "./pages/english/CollectionPage";
 import { VocabularyPage } from "./pages/english/VocabularyPage";
 import { ReviewPage } from "./pages/english/ReviewPage";
 import { WeeklyPage } from "./pages/english/WeeklyPage";
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/" element={<AppShell />}>
           <Route index element={<Navigate to="/english/vocabulary" replace />} />
           <Route path="english/vocabulary" element={<VocabularyPage />} />
+          <Route path="english/collection" element={<CollectionPage />} />
           <Route path="english/review" element={<ReviewPage />} />
           <Route path="english/weekly" element={<WeeklyPage />} />
           <Route path="todo/items" element={<ItemsPage />} />

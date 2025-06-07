@@ -1,0 +1,20 @@
+[[permission]]
+identifier = "allow-wordwing-ipc"
+description = "WordWing 自定义命令：生词、翻译浮层、快捷键等（主窗口与 translate-overlay 共用）。"
+commands.allow = [
+  "add_vocabulary_item",
+  "list_vocabulary",
+  "list_recent_translations_page",
+  "delete_vocabulary_item",
+  "set_vocabulary_starred",
+  "record_vocab_review",
+  "translate_from_clipboard_only",
+  "retry_translate_with_text",
+  "get_translate_hotkey_preset",
+  "get_translate_hotkey_display",
+  "list_translate_hotkey_choices",
+  "set_translate_hotkey_preset",
+  "trigger_translate_overlay",
+  "get_weekly_article_status",
+  "generate_weekly_article",
+]

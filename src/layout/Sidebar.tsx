@@ -24,6 +24,14 @@ export function Sidebar({ englishActive, todoActive, className, showFooterLink }
             生词
           </NavLink>
           <NavLink
+            to="/english/collection"
+            className={({ isActive }) =>
+              `sidebar__link${isActive ? " sidebar__link--active" : ""}`
+            }
+          >
+            收藏
+          </NavLink>
+          <NavLink
             to="/english/review"
             className={({ isActive }) =>
               `sidebar__link${isActive ? " sidebar__link--active" : ""}`

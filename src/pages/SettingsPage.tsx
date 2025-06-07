@@ -56,9 +56,12 @@ export function SettingsPage() {
           翻译快捷键
         </h3>
         <p className="page-lead" style={{ marginBottom: 12 }}>
-          <strong>Ctrl+Shift+D</strong> 常与浏览器、IDE
-          冲突。默认已改为 <strong>Super+Shift+T</strong>（Windows 键 + Shift +
-          T）；你可从下列预设中任选其一，保存后立即重注册全局热键。
+          默认 <strong>Ctrl+Shift+1</strong>。保存后会立即重注册。
+          在 <strong>Linux Wayland</strong> 下，若已安装桌面门户，系统可能弹出对话框要求确认「全局快捷键」绑定。
+        </p>
+        <p className="page-lead" style={{ marginBottom: 12 }}>
+          <strong>不依赖门户时：</strong>使用 <strong>X11</strong> 会话登录桌面（全局快捷键由系统常规通道注册），或始终在{" "}
+          <Link to="/english/vocabulary">生词</Link> 页点击 <strong>「打开翻译浮层（划词）」</strong>，效果与快捷键相同。
         </p>
         <label className="settings-label" htmlFor="hotkey-preset">
           预设
@@ -94,8 +97,8 @@ export function SettingsPage() {
 
       <div className="card" style={{ marginTop: 16 }}>
         <p>
-          <strong>划词</strong>依赖 X11 与 <code>xclip</code>（PRIMARY /
-          剪贴板）。Wayland 下若不可用，请用浮层「用剪贴板再试」。
+          <strong>划词 / 剪贴板</strong>由应用内建剪贴板接口读取（Linux：PRIMARY
+          优先，再标准剪贴板；X11 与 Wayland 均支持）。若仍取不到内容，可用浮层「用剪贴板再试」。
         </p>
         <p>
           返回 <Link to="/english/vocabulary">生词</Link> 或{" "}

@@ -77,3 +77,51 @@ fn extract_translation_text(val: &Value) -> Result<String, String> {
     }
     Err(format!("无法解析译文: {}", val))
 }
+
+/// 模板见 `prompts/weekly_article.txt`，占位符 `{{PHRASES}}` 由调用方替换为编号短语列表。
+const WEEKLY_ARTICLE_PROMPT_TEMPLATE: &str = include_str!("../prompts/weekly_article.txt");
+
+/// 是否与翻译浮层共用：环境变量 `DASHSCOPE_API_KEY` 非空。
+pub fn dashscope_api_key_configured() -> bool {
+    std::env::var("DASHSCOPE_API_KEY")
+        .ok()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false)
+}
+
+/// 周短文：仅返回模型输出字符串（JSON），由 weekly_article 解析。
+pub async fn weekly_article_completion(api_key: &str, phrase_block: &str) -> Result<String, String> {
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(90))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let prompt = WEEKLY_ARTICLE_PROMPT_TEMPLATE.replace("{{PHRASES}}", phrase_block);
+
+    let body = serde_json::json!({
+        "model": "qwen-turbo",
+        "input": { "prompt": prompt }
+    });
+
+    let res = client
+        .post("https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let status = res.status();
+    let val: Value = res.json().await.map_err(|e| e.to_string())?;
+
+    if !status.is_success() {
+        return Err(val
+            .pointer("/message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("周短文生成请求失败")
+            .to_string());
+    }
+
+    extract_translation_text(&val)
+}

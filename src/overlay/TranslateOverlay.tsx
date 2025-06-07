@@ -27,6 +27,7 @@ export function TranslateOverlay() {
   const hotkeyLabel = useTranslateHotkeyLabel();
   const [state, setState] = useState<TranslateState>({ kind: "idle" });
   const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   useEffect(() => {
     applyStoredTheme();
@@ -35,6 +36,7 @@ export function TranslateOverlay() {
   useEffect(() => {
     let un: UnlistenFn | undefined;
     void listen<TranslateState>("translate-state", (ev) => {
+      setSaveMsg(null);
       setState(ev.payload);
     }).then((fn) => {
       un = fn;
@@ -45,18 +47,27 @@ export function TranslateOverlay() {
   }, []);
 
   const hide = useCallback(() => {
-    void getCurrentWebviewWindow().hide();
+    void getCurrentWebviewWindow()
+      .hide()
+      .catch((e) => console.error("[WordWing] overlay hide failed:", e));
   }, []);
 
   const save = useCallback(async () => {
     if (state.kind !== "success") return;
     setSaving(true);
+    setSaveMsg(null);
     try {
       await invoke("add_vocabulary_item", {
-        source_text: state.source,
+        sourceText: state.source,
         translation: state.translation,
-        target_lang: state.target_lang,
+        targetLang: state.target_lang,
+        starred: true,
       });
+      setSaveMsg("已加入收藏。主窗口打开「收藏」可查看；「生词」页可浏览最近翻译记录。");
+    } catch (e) {
+      const msg = String(e);
+      setSaveMsg(msg.includes("not allowed") || msg.includes("denied") ? `收藏失败：无权限调用保存（${msg}）` : `收藏失败：${msg}`);
+      console.error("[WordWing] add_vocabulary_item:", e);
     } finally {
       setSaving(false);
     }
@@ -77,7 +88,9 @@ export function TranslateOverlay() {
   return (
     <div className="translate-overlay">
       <header className="translate-overlay__head">
-        <span className="translate-overlay__title">翻译</span>
+        <div className="translate-overlay__drag-region" data-tauri-drag-region>
+          <span className="translate-overlay__title">翻译</span>
+        </div>
         <button type="button" className="translate-overlay__close" onClick={hide} aria-label="关闭">
           ×
         </button>
@@ -124,8 +137,19 @@ export function TranslateOverlay() {
             </p>
             <p className="translate-overlay__result">{state.translation}</p>
             <p className="translate-overlay__meta">目标：{state.target_lang}</p>
+            {saveMsg && (
+              <p
+                className="translate-overlay__muted"
+                style={{
+                  marginTop: 10,
+                  color: saveMsg.startsWith("收藏失败") ? "var(--error)" : "var(--success)",
+                }}
+              >
+                {saveMsg}
+              </p>
+            )}
             <div className="translate-overlay__actions">
-              <button type="button" className="btn-primary" disabled={saving} onClick={save}>
+              <button type="button" className="btn-primary" disabled={saving} onClick={() => void save()}>
                 {saving ? "保存中…" : "收藏"}
               </button>
               <button type="button" className="btn-ghost" onClick={retryNetwork}>

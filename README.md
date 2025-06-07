@@ -13,13 +13,13 @@
 
 ## 划词翻译与生词（已实现）
 
-- **全局快捷键**（默认 **Ctrl+Shift+1**，与数字行 **1 / !** 同键）：读取 X11 **PRIMARY**（划词），为空则读 **剪贴板**；调用 DashScope 翻译后，在 **`translate-overlay`** 浮层展示。可在应用内 **设置 → 翻译快捷键** 换预设并立即生效（配置写入 `app_settings.json`）。
+- **全局快捷键**（默认 **Ctrl+Shift+1**，与数字行 **1 / !** 同键）：通过 **arboard** 读取 **PRIMARY**（划词）再读标准 **剪贴板**（Linux 上支持 X11 与 Wayland data-control）；调用 DashScope 翻译后，在 **`translate-overlay`** 浮层展示。可在应用内 **设置 → 翻译快捷键** 换预设并立即生效（配置写入 `app_settings.json`）。
 - **浮层**：「收藏」写入本地 `vocabulary.json`（应用数据目录，与 bundle identifier 对应，如 `~/.local/share/com.wordwing.desktop/`）；「用剪贴板再试」「重试」已接命令。
 - **生词页**：表格 **zebra** 行样式；监听 `vocabulary-changed`，与浮层收藏联动刷新；支持删除单行。
 
-需安装 **`xclip`**，并配置环境变量 **`DASHSCOPE_API_KEY`**（见设置页说明）。
+配置环境变量 **`DASHSCOPE_API_KEY`**（见设置页说明）。**不再依赖** 系统安装 **`xclip`**。
 
-**无弹窗 / 快捷键无效：** Linux **Wayland** 下 `global-hotkey` 往往无法注册全局快捷键；请用生词页 **「打开翻译浮层（划词）」** 或先复制文本再走剪贴板。后端已用 `emit_to(translate-overlay)` 投递事件并先 `show` 再发状态。
+**Wayland 全局快捷键：** 除 `tauri-plugin-global-shortcut` 外，在检测到 **`WAYLAND_DISPLAY`** 时会通过 **xdg-desktop-portal GlobalShortcuts** 再注册一遍；**首次启动或绑定失败重试时**，系统可能弹出对话框要求授权，请确认。若门户不可用，仍可用生词页 **「打开翻译浮层（划词）」**。
 
 ## 环境要求
 
