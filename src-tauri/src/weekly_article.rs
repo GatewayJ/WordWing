@@ -1,14 +1,11 @@
 use chrono::{DateTime, Datelike, Local, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::fs;
-use std::path::PathBuf;
 use std::sync::Mutex;
 
 use crate::translate::dashscope_api_key_configured;
 use crate::vocabulary::{VocabItem, VocabStore};
 
-const WEEKLY_FILE: &str = "weekly_generated.json";
 const MAX_PHRASES: usize = 36;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -58,35 +55,34 @@ pub struct WeeklyStatusDto {
 }
 
 pub struct WeeklyArticleStore {
-    path: PathBuf,
+    tree: sled::Tree,
     inner: Mutex<WeeklyFileState>,
 }
 
 impl WeeklyArticleStore {
-    pub fn load(dir: &std::path::Path) -> Result<Self, String> {
-        let path = dir.join(WEEKLY_FILE);
-        let state = if path.exists() {
-            let raw = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-            if raw.trim().is_empty() {
-                WeeklyFileState::default()
-            } else {
-                serde_json::from_str(&raw).map_err(|e| e.to_string())?
+    pub fn open(db: &sled::Db) -> Result<Self, String> {
+        let tree = db.open_tree("weekly").map_err(|e| e.to_string())?;
+        let state = match tree.get(b"state").map_err(|e| e.to_string())? {
+            None => WeeklyFileState::default(),
+            Some(v) => {
+                if v.is_empty() {
+                    WeeklyFileState::default()
+                } else {
+                    serde_json::from_slice(&v).map_err(|e| e.to_string())?
+                }
             }
-        } else {
-            WeeklyFileState::default()
         };
         Ok(Self {
-            path,
+            tree,
             inner: Mutex::new(state),
         })
     }
 
-    fn persist_locked(state: &WeeklyFileState, path: &PathBuf) -> Result<(), String> {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        }
-        let raw = serde_json::to_string_pretty(state).map_err(|e| e.to_string())?;
-        fs::write(path, raw).map_err(|e| e.to_string())
+    fn persist_locked(state: &WeeklyFileState, tree: &sled::Tree) -> Result<(), String> {
+        let raw = serde_json::to_vec(state).map_err(|e| e.to_string())?;
+        tree.insert(b"state", raw).map_err(|e| e.to_string())?;
+        tree.flush().map_err(|e| e.to_string())?;
+        Ok(())
     }
 
     pub fn week_label_zh() -> String {
@@ -134,7 +130,7 @@ impl WeeklyArticleStore {
             source_phrases: phrases.to_vec(),
         };
         g.article = Some(article.clone());
-        Self::persist_locked(&g, &self.path)?;
+        Self::persist_locked(&g, &self.tree)?;
         Ok(article)
     }
 }

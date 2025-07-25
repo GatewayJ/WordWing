@@ -1,10 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
-use std::sync::Mutex;
 use uuid::Uuid;
 
 const MAX_RECENT: usize = 100;
+const ORDER_KEY: &[u8] = b"!order";
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct RecentTranslationItem {
@@ -22,34 +20,29 @@ pub struct RecentTranslationsPage {
 }
 
 pub struct RecentTranslationsStore {
-    path: PathBuf,
-    items: Mutex<Vec<RecentTranslationItem>>,
+    tree: sled::Tree,
 }
 
 impl RecentTranslationsStore {
-    pub fn load(path: PathBuf) -> Result<Self, String> {
-        let items = if path.exists() {
-            let raw = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-            if raw.trim().is_empty() {
-                Vec::new()
-            } else {
-                serde_json::from_str(&raw).map_err(|e| e.to_string())?
-            }
-        } else {
-            Vec::new()
-        };
-        Ok(Self {
-            path,
-            items: Mutex::new(items),
-        })
+    pub fn open(db: &sled::Db) -> Result<Self, String> {
+        let tree = db.open_tree("recent").map_err(|e| e.to_string())?;
+        Ok(Self { tree })
     }
 
-    fn persist_locked(items: &[RecentTranslationItem], path: &PathBuf) -> Result<(), String> {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    fn load_order(&self) -> Result<Vec<String>, String> {
+        match self.tree.get(ORDER_KEY).map_err(|e| e.to_string())? {
+            None => Ok(Vec::new()),
+            Some(v) => serde_json::from_slice(&v).map_err(|e| e.to_string()),
         }
-        let raw = serde_json::to_string_pretty(items).map_err(|e| e.to_string())?;
-        fs::write(path, raw).map_err(|e| e.to_string())
+    }
+
+    fn save_order(&self, order: &[String]) -> Result<(), String> {
+        let raw = serde_json::to_vec(order).map_err(|e| e.to_string())?;
+        self.tree
+            .insert(ORDER_KEY, raw)
+            .map_err(|e| e.to_string())?;
+        self.tree.flush().map_err(|e| e.to_string())?;
+        Ok(())
     }
 
     /// 新记录插到最前，总量不超过 MAX_RECENT。
@@ -59,7 +52,6 @@ impl RecentTranslationsStore {
         translation: String,
         target_lang: String,
     ) -> Result<(), String> {
-        let mut g = self.items.lock().map_err(|e| e.to_string())?;
         let item = RecentTranslationItem {
             id: Uuid::new_v4().to_string(),
             source_text: source_text.trim().to_string(),
@@ -67,22 +59,38 @@ impl RecentTranslationsStore {
             target_lang,
             created_at: chrono::Utc::now().to_rfc3339(),
         };
-        g.insert(0, item);
-        if g.len() > MAX_RECENT {
-            g.truncate(MAX_RECENT);
+        let val = serde_json::to_vec(&item).map_err(|e| e.to_string())?;
+        self.tree
+            .insert(item.id.as_bytes(), val)
+            .map_err(|e| e.to_string())?;
+
+        let mut order = self.load_order()?;
+        order.insert(0, item.id.clone());
+        if order.len() > MAX_RECENT {
+            let dropped: Vec<String> = order.drain(MAX_RECENT..).collect();
+            for id in dropped {
+                let _ = self.tree.remove(id.as_bytes());
+            }
         }
-        Self::persist_locked(&g, &self.path)?;
+        self.save_order(&order)?;
         Ok(())
     }
 
     /// page 从 1 开始；per_page 限制在 1–50。
     pub fn list_page(&self, page: u32, per_page: u32) -> Result<RecentTranslationsPage, String> {
-        let g = self.items.lock().map_err(|e| e.to_string())?;
+        let order = self.load_order()?;
+        let total = order.len();
         let per = (per_page.clamp(1, 50)) as usize;
         let p = page.max(1) as usize;
-        let total = g.len();
         let start = (p - 1).saturating_mul(per);
-        let items = g.iter().skip(start).take(per).cloned().collect();
+        let mut items = Vec::new();
+        for id in order.iter().skip(start).take(per) {
+            if let Some(v) = self.tree.get(id.as_bytes()).map_err(|e| e.to_string())? {
+                let it: RecentTranslationItem =
+                    serde_json::from_slice(&v).map_err(|e| e.to_string())?;
+                items.push(it);
+            }
+        }
         Ok(RecentTranslationsPage { items, total })
     }
 }

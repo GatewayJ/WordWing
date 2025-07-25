@@ -29,4 +29,5 @@ uuid = { version = "1", features = ["v4", "serde"] }
 arboard = { version = "3", features = ["wayland-data-control"] }
 ashpd = { version = "0.13.9", features = ["tokio", "global_shortcuts"] }
 futures-util = "0.3"
+sled = "0.34"
 

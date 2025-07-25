@@ -1,5 +1,6 @@
 mod recent_translations;
 mod selection;
+mod storage;
 mod settings;
 mod translate;
 mod vocabulary;
@@ -322,24 +323,23 @@ pub fn run() {
                 e.to_string().into()
             })?;
             std::fs::create_dir_all(&dir).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
-            let path = dir.join("vocabulary.json");
-            let store = VocabStore::load(path).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            let db = storage::open_database(&dir).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            storage::migrate::run_from_json_files(&db, &dir)
+                .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            let store = VocabStore::open(&db).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             let star_migrate_flag = dir.join("migrated_vocab_star_v1.txt");
             if !star_migrate_flag.exists() {
                 let _ = store.migrate_legacy_unstarred_to_starred();
                 let _ = std::fs::write(&star_migrate_flag, "1");
             }
             app.manage(store);
-            let recent_path = dir.join("recent_translations.json");
-            let recent_store = RecentTranslationsStore::load(recent_path).map_err(|e| -> Box<dyn std::error::Error> {
-                e.into()
-            })?;
+            let recent_store =
+                RecentTranslationsStore::open(&db).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(recent_store);
-            let weekly_store = WeeklyArticleStore::load(&dir).map_err(|e| -> Box<dyn std::error::Error> {
-                e.into()
-            })?;
+            let weekly_store =
+                WeeklyArticleStore::open(&db).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(weekly_store);
-            let app_settings = AppSettings::load(&dir).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            let app_settings = AppSettings::open(&db).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             let preset = app_settings.preset();
             app.manage(app_settings);
             #[cfg(target_os = "linux")]
