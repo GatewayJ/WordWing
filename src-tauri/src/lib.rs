@@ -2,6 +2,8 @@ mod recent_translations;
 mod selection;
 mod storage;
 mod settings;
+mod todo;
+mod todo_notify;
 mod translate;
 mod vocabulary;
 mod weekly_article;
@@ -15,6 +17,7 @@ use settings::AppSettings;
 use recent_translations::{RecentTranslationsPage, RecentTranslationsStore};
 use vocabulary::{VocabItem, VocabStore};
 use weekly_article::{SavedArticle, WeeklyArticleStore, WeeklyStatusDto};
+use todo::{TodoItem, TodoSchedule, TodoStore};
 
 /// Tauri 2：对 `WebviewWindow` 调用 `emit` 时，事件未必投递到该 label 的 Webview；
 /// 使用 `AppHandle::emit_to("translate-overlay", …)` 与前端 `listen` 对齐。
@@ -312,12 +315,90 @@ async fn generate_weekly_article(
     Ok(article)
 }
 
+#[tauri::command]
+fn list_todo_items(store: tauri::State<TodoStore>) -> Result<Vec<TodoItem>, String> {
+    store.list_items()
+}
+
+#[tauri::command]
+fn add_todo_item(
+    app: AppHandle,
+    store: tauri::State<TodoStore>,
+    title: String,
+    notes: Option<String>,
+    due_at: Option<String>,
+) -> Result<TodoItem, String> {
+    let item = store.add_item(title, notes, due_at)?;
+    let _ = app.emit("todo-changed", ());
+    Ok(item)
+}
+
+#[tauri::command]
+fn update_todo_item(
+    app: AppHandle,
+    store: tauri::State<TodoStore>,
+    id: String,
+    title: String,
+    notes: String,
+    due_at: Option<String>,
+) -> Result<TodoItem, String> {
+    let item = store.update_item(&id, title, notes, due_at)?;
+    let _ = app.emit("todo-changed", ());
+    Ok(item)
+}
+
+#[tauri::command]
+fn set_todo_completed(
+    app: AppHandle,
+    store: tauri::State<TodoStore>,
+    id: String,
+    completed: bool,
+) -> Result<(), String> {
+    store.set_completed(&id, completed)?;
+    let _ = app.emit("todo-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_todo_item(app: AppHandle, store: tauri::State<TodoStore>, id: String) -> Result<(), String> {
+    store.delete_item(&id)?;
+    let _ = app.emit("todo-changed", ());
+    let _ = app.emit("todo-schedules-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+fn list_todo_schedules(store: tauri::State<TodoStore>) -> Result<Vec<TodoSchedule>, String> {
+    store.list_schedules()
+}
+
+#[tauri::command]
+fn add_todo_schedule(
+    app: AppHandle,
+    store: tauri::State<TodoStore>,
+    title: String,
+    fire_at: String,
+    todo_id: Option<String>,
+) -> Result<TodoSchedule, String> {
+    let sch = store.add_schedule(title, fire_at, todo_id)?;
+    let _ = app.emit("todo-schedules-changed", ());
+    Ok(sch)
+}
+
+#[tauri::command]
+fn delete_todo_schedule(app: AppHandle, store: tauri::State<TodoStore>, id: String) -> Result<(), String> {
+    store.delete_schedule(&id)?;
+    let _ = app.emit("todo-schedules-changed", ());
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let global_shortcut_plugin = tauri_plugin_global_shortcut::Builder::new().build();
 
     tauri::Builder::default()
         .plugin(global_shortcut_plugin)
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let dir = app.path().app_data_dir().map_err(|e| -> Box<dyn std::error::Error> {
                 e.to_string().into()
@@ -342,6 +423,9 @@ pub fn run() {
             let app_settings = AppSettings::open(&db).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             let preset = app_settings.preset();
             app.manage(app_settings);
+            let todo_store = TodoStore::open(&db).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            app.manage(todo_store);
+            todo_notify::spawn_schedule_notification_loop(app.handle().clone());
             #[cfg(target_os = "linux")]
             if std::env::var_os("WAYLAND_DISPLAY").is_some() {
                 let (tx, rx) = tokio::sync::watch::channel(preset.clone());
@@ -371,7 +455,15 @@ pub fn run() {
             set_translate_hotkey_preset,
             trigger_translate_overlay,
             get_weekly_article_status,
-            generate_weekly_article
+            generate_weekly_article,
+            list_todo_items,
+            add_todo_item,
+            update_todo_item,
+            set_todo_completed,
+            delete_todo_item,
+            list_todo_schedules,
+            add_todo_schedule,
+            delete_todo_schedule
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

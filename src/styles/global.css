@@ -1017,3 +1017,127 @@ a:focus-visible {
     margin-top: 0;
   }
 }
+
+/* Todo：条目与定时 */
+.btn-small {
+  font-size: 13px;
+  padding: 6px 12px;
+}
+
+.todo-form-card {
+  max-width: 36rem;
+  margin-bottom: 20px;
+}
+
+.todo-form-card__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 12px;
+  font-family: var(--font-serif);
+}
+
+.todo-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.todo-form .settings-label {
+  margin-top: 10px;
+}
+
+.todo-form .settings-label:first-of-type {
+  margin-top: 0;
+}
+
+.todo-input,
+.todo-textarea {
+  width: 100%;
+  max-width: 100%;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.todo-textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.todo-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.todo-table__check {
+  width: 2.5rem;
+}
+
+.todo-check {
+  width: 1.15rem;
+  height: 1.15rem;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.todo-table tbody tr.todo-row--overdue td:first-child {
+  box-shadow: inset 3px 0 0 var(--error);
+}
+
+.cell-clip {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.todo-schedule-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.todo-schedule-link:hover {
+  text-decoration: underline;
+}
+
+/* 纯文本日期/时间（替代 datetime-local，避免 WebKitGTK 日历弹层卡死主界面） */
+.plain-datetime {
+  margin-top: 4px;
+}
+
+.plain-datetime__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+  align-items: start;
+}
+
+@media (max-width: 480px) {
+  .plain-datetime__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.plain-datetime__hint {
+  font-size: 13px;
+  margin: 8px 0 0;
+  line-height: 1.45;
+}

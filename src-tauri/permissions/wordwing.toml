@@ -17,4 +17,12 @@ commands.allow = [
   "trigger_translate_overlay",
   "get_weekly_article_status",
   "generate_weekly_article",
+  "list_todo_items",
+  "add_todo_item",
+  "update_todo_item",
+  "set_todo_completed",
+  "delete_todo_item",
+  "list_todo_schedules",
+  "add_todo_schedule",
+  "delete_todo_schedule",
 ]

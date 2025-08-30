@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { Menu, Moon, Settings, Sun } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 
@@ -46,6 +47,19 @@ export function AppShell() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  /** 系统通知：定时任务到期由后端推送，此处仅请求权限（Linux 上多数桌面可直接发，仍建议允许）。 */
+  useEffect(() => {
+    void (async () => {
+      try {
+        if (!(await isPermissionGranted())) {
+          await requestPermission();
+        }
+      } catch {
+        /* 非 Tauri 或插件不可用时忽略 */
+      }
+    })();
+  }, []);
 
   const toggleTheme = useCallback(() => {
     setTheme((t) => (t === "dark" ? "light" : "dark"));

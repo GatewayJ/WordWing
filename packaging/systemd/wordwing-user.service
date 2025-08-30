@@ -1,0 +1,42 @@
+# WordWing — systemd 用户单元（随图形会话启动，适合 Linux 桌面）
+#
+# 安装示例：
+#   mkdir -p ~/.config/systemd/user
+#   cp packaging/systemd/wordwing-user.service ~/.config/systemd/user/wordwing.service
+#   # 编辑 ExecStart 为实际可执行文件路径（见下方说明）
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now wordwing.service
+#
+# 查看状态：  systemctl --user status wordwing.service
+# 日志：      journalctl --user -u wordwing.service -f
+#
+# 可执行文件常见位置：
+#   - cargo install / 手动拷贝：~/bin/wordwing 或 /usr/local/bin/wordwing
+#   - .deb 安装：              /usr/bin/wordwing（以实际包为准）
+#   - 开发调试不建议用本单元；请直接 npm run tauri:dev
+#
+# 可选环境变量文件（本单元已引用，不存在也不报错）：
+#   ~/.config/wordwing-env
+#   每行一例： DASHSCOPE_API_KEY=sk-xxxx
+
+[Unit]
+Description=WordWing 桌面助手
+Documentation=https://github.com/GatewayJ/WordWing
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+# 修改为机器上真实的 wordwing 二进制路径
+ExecStart=/usr/bin/wordwing
+# 需要时取消注释并填写，或改用 ~/.config/wordwing-env
+# Environment=DASHSCOPE_API_KEY=
+
+# 可选：从文件加载环境变量（路径中的 "-" 表示文件不存在时不视为错误）
+EnvironmentFile=-%h/.config/wordwing-env
+
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=graphical-session.target
