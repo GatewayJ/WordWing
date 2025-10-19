@@ -10,10 +10,10 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
-                {
-                    "name": "DASHSCOPE_API_KEY",
-                    "value": ""
-                }
+                // {
+                //     "name": "DASHSCOPE_API_KEY",
+                //     "value": ""
+                // }
             ],
             "externalConsole": false,
             "MIMode": "gdb",

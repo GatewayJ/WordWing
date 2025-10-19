@@ -35,19 +35,26 @@ impl Translator {
         Self {
             client: reqwest::Client::new(),
             api_key,
-            base_url: "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation".to_string(),
+            base_url:
+                "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
+                    .to_string(),
         }
     }
 
-    pub async fn translate(&self, text: &str, target_lang: &str) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn translate(
+        &self,
+        text: &str,
+        target_lang: &str,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let prompt = format!("请将以下文本翻译成{}:\n\n{}", target_lang, text);
-        
+
         let request_body = TranslationRequest {
             model: "qwen-turbo".to_string(),
             input: TranslationInput { prompt },
         };
 
-        let response = self.client
+        let response = self
+            .client
             .post(&self.base_url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Content-Type", "application/json")
