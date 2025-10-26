@@ -14,7 +14,31 @@ impl PopupWindow {
         window.set_default_size(300, 100);
         window.set_decorated(false);
         window.set_keep_above(true);
+        let css_provider = gtk::CssProvider::new();
+        css_provider.load_from_data(
+            b"
+            window.popup-window {
+                border-radius: 15px;
+                background-color: #f0f0f0;
+                border: 1px solid #cccccc;
+                box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
+            }
+            label {
+                color: #333333;
+                font-family: sans-serif;
+                font-size: 14px;
+            }
+        ",
+        );
 
+        gtk::StyleContext::add_provider_for_screen(
+             &gtk::prelude::WidgetExt::screen(&window).unwrap(),
+            &css_provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+        
+        // 给窗口添加CSS类名
+        window.style_context().add_class("popup-window");
         let label = gtk::Label::new(None);
         label.set_line_wrap(true);
         label.set_max_width_chars(40);
@@ -59,7 +83,6 @@ impl PopupWindow {
             let text = label_clone.text();
             info!("{}", text);
             tx.send(text.to_string()).expect("Failed to send text");
-            // Self::copy_to_clipboard(&text);
         });
 
         Self { window, label }
@@ -67,6 +90,11 @@ impl PopupWindow {
 
     pub fn show_at_mouse(&self, text: &str, x: i32, y: i32) {
         self.label.set_text(text);
+        
+        let pango_layout = self.label.create_pango_layout(Some(text));
+        let (width, height) = pango_layout.pixel_size();
+
+        self.window.resize(width, height);
         self.window.move_(x, y);
         self.window.show_all();
     }
