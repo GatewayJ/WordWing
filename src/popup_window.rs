@@ -1,13 +1,13 @@
 // src/popup_window.rs
-use gtk::{prelude::*, Window};
-
+use gtk::prelude::*;
+use tracing::info;
 pub struct PopupWindow {
     window: gtk::Window,
     label: gtk::Label,
 }
 
 impl PopupWindow {
-    pub fn new() -> Self {
+    pub fn new(tx: std::sync::mpsc::Sender<String>) -> Self {
         gtk::init().expect("Failed to initialize GTK");
 
         let window = gtk::Window::new(gtk::WindowType::Popup);
@@ -53,12 +53,14 @@ impl PopupWindow {
             w_clone.hide();
         });
 
-        //     // 连接复制按钮的点击事件
-        //     let label_clone = label.clone();
-        //     copy_button.connect_clicked(move |_| {
-        //         let text = label_clone.text();
-        //         Self::copy_to_clipboard(&text);
-        //     });
+        // 连接复制按钮的点击事件
+        let label_clone = label.clone();
+        copy_button.connect_clicked(move |_| {
+            let text = label_clone.text();
+            info!("{}", text);
+            tx.send(text.to_string()).expect("Failed to send text");
+            // Self::copy_to_clipboard(&text);
+        });
 
         Self { window, label }
     }
@@ -67,9 +69,5 @@ impl PopupWindow {
         self.label.set_text(text);
         self.window.move_(x, y);
         self.window.show_all();
-    }
-
-    pub fn hide(&self) {
-        self.window.hide();
     }
 }
