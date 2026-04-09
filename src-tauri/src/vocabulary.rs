@@ -80,8 +80,7 @@ impl VocabStore {
             .get(id.as_bytes())
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "未找到该条目".to_string())?;
-        let mut item: VocabItem =
-            serde_json::from_slice(&old).map_err(|e| e.to_string())?;
+        let mut item: VocabItem = serde_json::from_slice(&old).map_err(|e| e.to_string())?;
         item.starred = starred;
         let val = serde_json::to_vec(&item).map_err(|e| e.to_string())?;
         self.tree
@@ -97,8 +96,7 @@ impl VocabStore {
             .get(id.as_bytes())
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "未找到该条目".to_string())?;
-        let mut item: VocabItem =
-            serde_json::from_slice(&old).map_err(|e| e.to_string())?;
+        let mut item: VocabItem = serde_json::from_slice(&old).map_err(|e| e.to_string())?;
         if remembered {
             item.review_correct = item.review_correct.saturating_add(1);
         } else {
@@ -117,8 +115,7 @@ impl VocabStore {
         let mut changed = false;
         for entry in self.tree.iter() {
             let (k, v) = entry.map_err(|e| e.to_string())?;
-            let mut item: VocabItem =
-                serde_json::from_slice(&v).map_err(|e| e.to_string())?;
+            let mut item: VocabItem = serde_json::from_slice(&v).map_err(|e| e.to_string())?;
             if !item.starred {
                 item.starred = true;
                 changed = true;

@@ -37,7 +37,8 @@ fn migrate_vocab(db: &sled::Db, dir: &Path) -> Result<(), String> {
     let items: Vec<VocabItem> = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
     for it in &items {
         let val = serde_json::to_vec(it).map_err(|e| e.to_string())?;
-        tree.insert(it.id.as_bytes(), val).map_err(|e| e.to_string())?;
+        tree.insert(it.id.as_bytes(), val)
+            .map_err(|e| e.to_string())?;
     }
     tree.flush().map_err(|e| e.to_string())?;
     backup_rename(&path)?;
@@ -58,14 +59,17 @@ fn migrate_recent(db: &sled::Db, dir: &Path) -> Result<(), String> {
         backup_rename(&path)?;
         return Ok(());
     }
-    let items: Vec<RecentTranslationItem> = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+    let items: Vec<RecentTranslationItem> =
+        serde_json::from_str(&raw).map_err(|e| e.to_string())?;
     let order: Vec<String> = items.iter().map(|x| x.id.clone()).collect();
     for it in &items {
         let val = serde_json::to_vec(it).map_err(|e| e.to_string())?;
-        tree.insert(it.id.as_bytes(), val).map_err(|e| e.to_string())?;
+        tree.insert(it.id.as_bytes(), val)
+            .map_err(|e| e.to_string())?;
     }
     let order_raw = serde_json::to_vec(&order).map_err(|e| e.to_string())?;
-    tree.insert(b"!order", order_raw).map_err(|e| e.to_string())?;
+    tree.insert(b"!order", order_raw)
+        .map_err(|e| e.to_string())?;
     tree.flush().map_err(|e| e.to_string())?;
     backup_rename(&path)?;
     Ok(())

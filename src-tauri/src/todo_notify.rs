@@ -37,7 +37,10 @@ fn poll_due_schedules(app: &AppHandle) -> Result<(), String> {
         match show {
             Ok(_) => {
                 if let Err(e) = todo.mark_schedule_notification_sent(&sch.id) {
-                    eprintln!("[WordWing] mark_schedule_notification_sent {}: {}", sch.id, e);
+                    eprintln!(
+                        "[WordWing] mark_schedule_notification_sent {}: {}",
+                        sch.id, e
+                    );
                 } else {
                     any_marked = true;
                 }

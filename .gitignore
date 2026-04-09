@@ -2,6 +2,7 @@
 legacy-gtk/target
 node_modules
 dist
+dist.bak.*
 src-tauri/target
 .DS_Store
 *.log

@@ -1,6 +1,12 @@
 # WordWing — systemd 用户单元（随图形会话启动，适合 Linux 桌面）
 #
-# 安装示例：
+# 推荐一键安装/更新（构建 + ~/.local/bin + 本单元）：
+#   ./scripts/install-or-update.sh
+# 仅配置 systemd（需已有 wordwing 可执行文件）：
+#   ./packaging/systemd/install-user-service.sh
+#   ./packaging/systemd/install-user-service.sh /path/to/wordwing
+#
+# 手动安装示例：
 #   mkdir -p ~/.config/systemd/user
 #   cp packaging/systemd/wordwing-user.service ~/.config/systemd/user/wordwing.service
 #   # 编辑 ExecStart 为实际可执行文件路径（见下方说明）

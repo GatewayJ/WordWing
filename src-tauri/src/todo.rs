@@ -39,9 +39,7 @@ impl TodoStore {
     pub fn open(db: &sled::Db) -> Result<Self, String> {
         let s = Self {
             items: db.open_tree("todo_items").map_err(|e| e.to_string())?,
-            schedules: db
-                .open_tree("todo_schedules")
-                .map_err(|e| e.to_string())?,
+            schedules: db.open_tree("todo_schedules").map_err(|e| e.to_string())?,
         };
         s.migrate_past_schedules_skip_notification()?;
         Ok(s)
@@ -76,22 +74,20 @@ impl TodoStore {
             let it: TodoItem = serde_json::from_slice(&val).map_err(|e| e.to_string())?;
             v.push(it);
         }
-        v.sort_by(|a, b| {
-            match (a.completed, b.completed) {
-                (false, true) => std::cmp::Ordering::Less,
-                (true, false) => std::cmp::Ordering::Greater,
-                _ => {
-                    let due_ord = match (&a.due_at, &b.due_at) {
-                        (None, None) => std::cmp::Ordering::Equal,
-                        (None, Some(_)) => std::cmp::Ordering::Greater,
-                        (Some(_), None) => std::cmp::Ordering::Less,
-                        (Some(x), Some(y)) => x.cmp(y),
-                    };
-                    if due_ord != std::cmp::Ordering::Equal {
-                        return due_ord;
-                    }
-                    b.created_at.cmp(&a.created_at)
+        v.sort_by(|a, b| match (a.completed, b.completed) {
+            (false, true) => std::cmp::Ordering::Less,
+            (true, false) => std::cmp::Ordering::Greater,
+            _ => {
+                let due_ord = match (&a.due_at, &b.due_at) {
+                    (None, None) => std::cmp::Ordering::Equal,
+                    (None, Some(_)) => std::cmp::Ordering::Greater,
+                    (Some(_), None) => std::cmp::Ordering::Less,
+                    (Some(x), Some(y)) => x.cmp(y),
+                };
+                if due_ord != std::cmp::Ordering::Equal {
+                    return due_ord;
                 }
+                b.created_at.cmp(&a.created_at)
             }
         });
         Ok(v)
@@ -174,7 +170,10 @@ impl TodoStore {
     }
 
     pub fn delete_item(&self, id: &str) -> Result<(), String> {
-        let r = self.items.remove(id.as_bytes()).map_err(|e| e.to_string())?;
+        let r = self
+            .items
+            .remove(id.as_bytes())
+            .map_err(|e| e.to_string())?;
         if r.is_none() {
             return Err("未找到该条目".to_string());
         }
@@ -217,7 +216,12 @@ impl TodoStore {
         }
         validate_rfc3339(&fire_at)?;
         if let Some(ref tid) = todo_id {
-            if self.items.get(tid.as_bytes()).map_err(|e| e.to_string())?.is_none() {
+            if self
+                .items
+                .get(tid.as_bytes())
+                .map_err(|e| e.to_string())?
+                .is_none()
+            {
                 return Err("关联的待办条目不存在".to_string());
             }
         }
@@ -250,7 +254,10 @@ impl TodoStore {
     }
 
     /// 已到触发时间、尚未推送系统通知的定时（`fire_at <= now`）。
-    pub fn list_due_unsent(&self, now: &chrono::DateTime<chrono::Utc>) -> Result<Vec<TodoSchedule>, String> {
+    pub fn list_due_unsent(
+        &self,
+        now: &chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<TodoSchedule>, String> {
         let mut out = Vec::new();
         for entry in self.schedules.iter() {
             let (_, v) = entry.map_err(|e| e.to_string())?;

@@ -38,9 +38,10 @@ impl AppSettings {
     }
 
     pub fn preset(&self) -> String {
-        self.inner.lock().map(|g| g.clone()).unwrap_or_else(|_| {
-            DEFAULT_TRANSLATE_HOTKEY_PRESET.to_string()
-        })
+        self.inner
+            .lock()
+            .map(|g| g.clone())
+            .unwrap_or_else(|_| DEFAULT_TRANSLATE_HOTKEY_PRESET.to_string())
     }
 
     pub fn set_preset(&self, preset: &str) -> Result<(), String> {

@@ -1,14 +1,18 @@
 use reqwest::Client;
 use serde_json::Value;
 
-fn is_mostly_chinese(text: &str) -> bool {
+/// 是否包含常见汉字（CJK 统一表意文字），用于「中译英」模式校验。
+pub fn is_mostly_chinese(text: &str) -> bool {
     text.chars()
         .any(|c| (c as u32) >= 0x4e00 && (c as u32) <= 0x9fff)
 }
 
+/// 中译英固定目标语言标签（与 DashScope 提示语一致）。
+pub const TARGET_ENGLISH: &str = "English";
+
 pub fn target_language_label(text: &str) -> &'static str {
     if is_mostly_chinese(text) {
-        "English"
+        TARGET_ENGLISH
     } else {
         "中文"
     }
@@ -90,7 +94,10 @@ pub fn dashscope_api_key_configured() -> bool {
 }
 
 /// 周短文：仅返回模型输出字符串（JSON），由 weekly_article 解析。
-pub async fn weekly_article_completion(api_key: &str, phrase_block: &str) -> Result<String, String> {
+pub async fn weekly_article_completion(
+    api_key: &str,
+    phrase_block: &str,
+) -> Result<String, String> {
     let client = Client::builder()
         .timeout(std::time::Duration::from_secs(90))
         .build()

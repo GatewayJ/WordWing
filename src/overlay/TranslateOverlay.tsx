@@ -7,10 +7,17 @@ import "./translate-overlay.css";
 
 export type TranslateState =
   | { kind: "idle" }
-  | { kind: "empty"; reason: string }
-  | { kind: "loading"; source: string; source_truncated?: boolean }
-  | { kind: "success"; source: string; translation: string; target_lang: string }
-  | { kind: "error"; source?: string; message: string };
+  | { kind: "empty"; reason: string; bilingual_overlay?: boolean; zh_to_en?: boolean }
+  | { kind: "loading"; source: string; source_truncated?: boolean; bilingual_overlay?: boolean; zh_to_en?: boolean }
+  | {
+      kind: "success";
+      source: string;
+      translation: string;
+      target_lang: string;
+      bilingual_overlay?: boolean;
+      zh_to_en?: boolean;
+    }
+  | { kind: "error"; source?: string; message: string; bilingual_overlay?: boolean; zh_to_en?: boolean };
 
 function applyStoredTheme() {
   try {
@@ -23,11 +30,18 @@ function applyStoredTheme() {
   }
 }
 
+/** Ctrl+Shift+2 中英通道（兼容旧字段 zh_to_en） */
+function isBilingualOverlay(s: TranslateState): boolean {
+  if (s.kind === "idle") return false;
+  return s.bilingual_overlay === true || s.zh_to_en === true;
+}
+
 export function TranslateOverlay() {
   const hotkeyLabel = useTranslateHotkeyLabel();
   const [state, setState] = useState<TranslateState>({ kind: "idle" });
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [copyMsg, setCopyMsg] = useState<string | null>(null);
 
   useEffect(() => {
     applyStoredTheme();
@@ -37,6 +51,7 @@ export function TranslateOverlay() {
     let un: UnlistenFn | undefined;
     void listen<TranslateState>("translate-state", (ev) => {
       setSaveMsg(null);
+      setCopyMsg(null);
       setState(ev.payload);
     }).then((fn) => {
       un = fn;
@@ -73,23 +88,33 @@ export function TranslateOverlay() {
     }
   }, [state]);
 
-  const retryClipboard = useCallback(() => {
-    void invoke("translate_from_clipboard_only");
-  }, []);
-
-  const retryNetwork = useCallback(() => {
-    if (state.kind === "error" && state.source) {
-      void invoke("retry_translate_with_text", { source: state.source });
-    } else if (state.kind === "success") {
-      void invoke("retry_translate_with_text", { source: state.source });
+  const copyTranslation = useCallback(async () => {
+    if (state.kind !== "success" || !isBilingualOverlay(state)) return;
+    setCopyMsg(null);
+    try {
+      await invoke("write_clipboard_text", { text: state.translation });
+      setCopyMsg("已复制译文到剪贴板。");
+    } catch (e) {
+      setCopyMsg(`复制失败：${String(e)}`);
     }
   }, [state]);
+
+  /** 重新读取标准剪贴板并翻译（不沿用浮层内缓存的原文）。 */
+  const retryFromClipboard = useCallback(() => {
+    if (isBilingualOverlay(state)) {
+      void invoke("translate_from_clipboard_zh_en");
+    } else {
+      void invoke("translate_from_clipboard_only");
+    }
+  }, [state]);
+
+  const overlayTitle = isBilingualOverlay(state) ? "中英翻译" : "翻译";
 
   return (
     <div className="translate-overlay">
       <header className="translate-overlay__head">
         <div className="translate-overlay__drag-region" data-tauri-drag-region>
-          <span className="translate-overlay__title">翻译</span>
+          <span className="translate-overlay__title">{overlayTitle}</span>
         </div>
         <button type="button" className="translate-overlay__close" onClick={hide} aria-label="关闭">
           ×
@@ -99,7 +124,9 @@ export function TranslateOverlay() {
       <div className="translate-overlay__body">
         {state.kind === "idle" && (
           <p className="translate-overlay__muted">
-            按 <strong>{hotkeyLabel}</strong> 划词翻译（可在主窗口设置中更换）。
+            按 <strong>{hotkeyLabel}</strong> 划词翻译：先选中文字再按快捷键（Linux 使用 PRIMARY 选区；可在设置中更换该键）。
+            <br />
+            按 <strong>Ctrl+Shift+2</strong> 打开<strong>中英翻译</strong>：同样<strong>先划词再按</strong>（无划词则用剪贴板）；自动判断译成英文或中文，成功后可<strong>复制译文</strong>。
           </p>
         )}
 
@@ -107,7 +134,7 @@ export function TranslateOverlay() {
           <div className="translate-overlay__panel">
             <p className="translate-overlay__error">{state.reason}</p>
             <div className="translate-overlay__actions">
-              <button type="button" className="btn-ghost" onClick={retryClipboard}>
+              <button type="button" className="btn-ghost" onClick={retryFromClipboard}>
                 用剪贴板再试
               </button>
               <button type="button" className="btn-ghost" onClick={hide}>
@@ -126,7 +153,9 @@ export function TranslateOverlay() {
               {state.source}
               {state.source_truncated ? "…" : ""}
             </p>
-            <p className="translate-overlay__muted">翻译中…</p>
+            <p className="translate-overlay__muted">
+              {isBilingualOverlay(state) ? "中英翻译中…" : "翻译中…"}
+            </p>
           </div>
         )}
 
@@ -137,7 +166,7 @@ export function TranslateOverlay() {
             </p>
             <p className="translate-overlay__result">{state.translation}</p>
             <p className="translate-overlay__meta">目标：{state.target_lang}</p>
-            {saveMsg && (
+            {saveMsg && !isBilingualOverlay(state) && (
               <p
                 className="translate-overlay__muted"
                 style={{
@@ -148,11 +177,29 @@ export function TranslateOverlay() {
                 {saveMsg}
               </p>
             )}
+            {copyMsg && (
+              <p
+                className="translate-overlay__muted"
+                style={{
+                  marginTop: 8,
+                  color: copyMsg.startsWith("复制失败") ? "var(--error)" : "var(--success)",
+                }}
+              >
+                {copyMsg}
+              </p>
+            )}
             <div className="translate-overlay__actions">
-              <button type="button" className="btn-primary" disabled={saving} onClick={() => void save()}>
-                {saving ? "保存中…" : "收藏"}
-              </button>
-              <button type="button" className="btn-ghost" onClick={retryNetwork}>
+              {isBilingualOverlay(state) && (
+                <button type="button" className="btn-primary" onClick={() => void copyTranslation()}>
+                  复制译文
+                </button>
+              )}
+              {!isBilingualOverlay(state) && (
+                <button type="button" className="btn-primary" disabled={saving} onClick={() => void save()}>
+                  {saving ? "保存中…" : "收藏"}
+                </button>
+              )}
+              <button type="button" className="btn-ghost" onClick={retryFromClipboard}>
                 重试
               </button>
               <button type="button" className="btn-ghost" onClick={hide}>
@@ -169,11 +216,8 @@ export function TranslateOverlay() {
               <p className="translate-overlay__source-preview">{state.source}</p>
             )}
             <div className="translate-overlay__actions">
-              <button type="button" className="btn-primary" onClick={retryNetwork}>
-                重试
-              </button>
-              <button type="button" className="btn-ghost" onClick={retryClipboard}>
-                用剪贴板再试
+              <button type="button" className="btn-primary" onClick={retryFromClipboard}>
+                重试（读剪贴板）
               </button>
               <button type="button" className="btn-ghost" onClick={hide}>
                 关闭

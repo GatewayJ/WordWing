@@ -63,6 +63,11 @@ export function SettingsPage() {
           <strong>不依赖门户时：</strong>使用 <strong>X11</strong> 会话登录桌面（全局快捷键由系统常规通道注册），或始终在{" "}
           <Link to="/english/vocabulary">生词</Link> 页点击 <strong>「打开翻译浮层（划词）」</strong>，效果与快捷键相同。
         </p>
+        <p className="page-lead" style={{ marginBottom: 12 }}>
+          <strong>中英翻译：</strong>固定 <strong>Ctrl+Shift+2</strong>（与数字行 <strong>2 / @</strong> 同键）。与主翻译相同：先
+          <strong>划词</strong>再按（Linux PRIMARY），否则用剪贴板；自动判断译成英文或中文，浮层内可
+          <strong>复制译文</strong>。与上方预设无关。
+        </p>
         <label className="settings-label" htmlFor="hotkey-preset">
           预设
         </label>

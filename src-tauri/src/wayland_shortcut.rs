@@ -4,10 +4,11 @@ use futures_util::StreamExt;
 use std::time::Duration;
 use tauri::AppHandle;
 
-use ashpd::desktop::CreateSessionOptions;
 use ashpd::desktop::global_shortcuts::{BindShortcutsOptions, GlobalShortcuts, NewShortcut};
+use ashpd::desktop::CreateSessionOptions;
 
 const PORTAL_SHORTCUT_ID: &str = "wordwing-translate";
+const PORTAL_SHORTCUT_ZH_EN_ID: &str = "wordwing-zh-en";
 
 /// 供设置页在更换预设时通知 Portal 会话重建绑定。
 pub struct HotkeyPresetWatch(pub tokio::sync::watch::Sender<String>);
@@ -16,9 +17,7 @@ pub async fn portal_hotkey_loop(app: AppHandle, mut rx: tokio::sync::watch::Rece
     loop {
         let preset = (*rx.borrow()).clone();
         let Some(trigger) = crate::settings::preset_to_portal_preferred_trigger(&preset) else {
-            eprintln!(
-                "[WordWing] 当前热键预设无法在 Wayland Portal 中表达，请换用其它预设。"
-            );
+            eprintln!("[WordWing] 当前热键预设无法在 Wayland Portal 中表达，请换用其它预设。");
             if rx.changed().await.is_err() {
                 return;
             }
@@ -40,14 +39,21 @@ pub async fn portal_hotkey_loop(app: AppHandle, mut rx: tokio::sync::watch::Rece
             continue;
         };
 
-        let shortcut = NewShortcut::new(
-            PORTAL_SHORTCUT_ID,
-            "WordWing：划词或剪贴板翻译",
+        let shortcut_main = NewShortcut::new(PORTAL_SHORTCUT_ID, "WordWing：划词或剪贴板翻译")
+            .preferred_trigger(Some(trigger));
+        let shortcut_zh_en = NewShortcut::new(
+            PORTAL_SHORTCUT_ZH_EN_ID,
+            "WordWing：中英翻译（划词/剪贴板，可复制译文）",
         )
-        .preferred_trigger(Some(trigger));
+        .preferred_trigger(Some("<Control><Shift>2"));
 
         let bind_req = match portal
-            .bind_shortcuts(&session, &[shortcut], None, BindShortcutsOptions::default())
+            .bind_shortcuts(
+                &session,
+                &[shortcut_main, shortcut_zh_en],
+                None,
+                BindShortcutsOptions::default(),
+            )
             .await
         {
             Ok(r) => r,
@@ -96,11 +102,19 @@ pub async fn portal_hotkey_loop(app: AppHandle, mut rx: tokio::sync::watch::Rece
                         let _ = session.close().await;
                         break;
                     };
-                    if act.shortcut_id() == PORTAL_SHORTCUT_ID {
-                        let h = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            crate::translate_flow_selection_first(h).await;
-                        });
+                    let h = app.clone();
+                    match act.shortcut_id() {
+                        PORTAL_SHORTCUT_ID => {
+                            tauri::async_runtime::spawn(async move {
+                                crate::translate_flow_selection_first(h).await;
+                            });
+                        }
+                        PORTAL_SHORTCUT_ZH_EN_ID => {
+                            tauri::async_runtime::spawn(async move {
+                                crate::translate_zh_en_selection_first(h).await;
+                            });
+                        }
+                        _ => {}
                     }
                 }
             }

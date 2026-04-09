@@ -1,23 +1,23 @@
 mod recent_translations;
 mod selection;
-mod storage;
 mod settings;
+mod storage;
 mod todo;
 mod todo_notify;
 mod translate;
 mod vocabulary;
-mod weekly_article;
 #[cfg(target_os = "linux")]
 mod wayland_shortcut;
+mod weekly_article;
 
+use recent_translations::{RecentTranslationsPage, RecentTranslationsStore};
+use settings::AppSettings;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
-use settings::AppSettings;
-use recent_translations::{RecentTranslationsPage, RecentTranslationsStore};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use todo::{TodoItem, TodoSchedule, TodoStore};
 use vocabulary::{VocabItem, VocabStore};
 use weekly_article::{SavedArticle, WeeklyArticleStore, WeeklyStatusDto};
-use todo::{TodoItem, TodoSchedule, TodoStore};
 
 /// Tauri 2：对 `WebviewWindow` 调用 `emit` 时，事件未必投递到该 label 的 Webview；
 /// 使用 `AppHandle::emit_to("translate-overlay", …)` 与前端 `listen` 对齐。
@@ -34,8 +34,10 @@ fn overlay_bring_up(win: &tauri::WebviewWindow) {
     let _ = win.set_focus();
 }
 
-fn register_translate_hotkey(app: &AppHandle, preset: &str) -> Result<(), String> {
+/// 普通翻译（设置中的预设）+ 固定 **Ctrl+Shift+2** 中英翻译（划词/剪贴板，与主流程相同取词顺序）。
+fn register_translate_hotkeys(app: &AppHandle, preset: &str) -> Result<(), String> {
     let sc = settings::preset_to_shortcut(preset)?;
+    let sc_zh_en = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Digit2);
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
     gs.on_shortcut(sc, |app, _sc, event| {
@@ -47,7 +49,18 @@ fn register_translate_hotkey(app: &AppHandle, preset: &str) -> Result<(), String
             translate_flow_selection_first(h).await;
         });
     })
-    .map_err(|e| e.to_string())
+    .map_err(|e| e.to_string())?;
+    gs.on_shortcut(sc_zh_en, |app, _sc, event| {
+        if event.state != ShortcutState::Pressed {
+            return;
+        }
+        let h = app.clone();
+        tauri::async_runtime::spawn(async move {
+            translate_zh_en_selection_first(h).await;
+        });
+    })
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 async fn translate_flow_core(app: AppHandle, source: Option<String>, clipboard_only: bool) {
@@ -114,11 +127,7 @@ async fn translate_flow_core(app: AppHandle, source: Option<String>, clipboard_o
         Ok(t) if !t.trim().is_empty() => {
             let translation = t.trim().to_string();
             if let Some(recent) = app.try_state::<RecentTranslationsStore>() {
-                let _ = recent.push(
-                    source.clone(),
-                    translation.clone(),
-                    target.to_string(),
-                );
+                let _ = recent.push(source.clone(), translation.clone(), target.to_string());
                 let _ = app.emit("recent-translations-changed", ());
             }
             overlay_emit(
@@ -154,9 +163,129 @@ async fn translate_flow_core(app: AppHandle, source: Option<String>, clipboard_o
     }
 }
 
+/// 划词后立刻按全局键时，部分环境下 PRIMARY 尚未就绪；短暂等待后再读一次。
+async fn read_selection_primary_then_clipboard_with_retry() -> Option<String> {
+    if let Some(s) = selection::read_selection_primary_then_clipboard() {
+        return Some(s);
+    }
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    selection::read_selection_primary_then_clipboard()
+}
+
 pub(crate) async fn translate_flow_selection_first(app: AppHandle) {
-    let source = selection::read_selection_primary_then_clipboard();
+    let source = read_selection_primary_then_clipboard_with_retry().await;
     translate_flow_core(app, source, false).await;
+}
+
+/// Ctrl+Shift+2：与主翻译相同的**划词优先**（PRIMARY → 剪贴板）与**中英互译**判断，成功后可一键复制译文。
+async fn translate_bilingual_hotkey_flow_core(
+    app: AppHandle,
+    source: Option<String>,
+    clipboard_only: bool,
+) {
+    let Some(win) = app.get_webview_window("translate-overlay") else {
+        eprintln!("[WordWing] missing webview window label translate-overlay");
+        return;
+    };
+
+    let source = source.and_then(|s| {
+        let t = s.trim().to_string();
+        if t.is_empty() {
+            None
+        } else {
+            Some(t)
+        }
+    });
+
+    let Some(source) = source else {
+        let reason = if clipboard_only {
+            "剪贴板为空"
+        } else {
+            "未选中文字：请先划词（Linux 为 PRIMARY 选区）或复制到剪贴板后再试"
+        };
+        overlay_bring_up(&win);
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        overlay_emit(
+            &app,
+            serde_json::json!({ "kind": "empty", "reason": reason, "bilingual_overlay": true }),
+        );
+        return;
+    };
+
+    overlay_bring_up(&win);
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    let preview: String = source.chars().take(500).collect();
+    let truncated = source.chars().count() > 500;
+    overlay_emit(
+        &app,
+        serde_json::json!({
+            "kind": "loading",
+            "source": preview,
+            "source_truncated": truncated,
+            "bilingual_overlay": true
+        }),
+    );
+
+    let api_key = match std::env::var("DASHSCOPE_API_KEY") {
+        Ok(k) if !k.trim().is_empty() => k,
+        _ => {
+            overlay_emit(
+                &app,
+                serde_json::json!({
+                    "kind": "error",
+                    "source": Some(source.chars().take(200).collect::<String>()),
+                    "message": "未配置 DASHSCOPE_API_KEY。请在启动应用的终端中执行 export DASHSCOPE_API_KEY=…，或写入 ~/.bashrc / ~/.profile。",
+                    "bilingual_overlay": true
+                }),
+            );
+            return;
+        }
+    };
+
+    let target = translate::target_language_label(&source);
+    match translate::translate_dashscope(&api_key, &source, target).await {
+        Ok(t) if !t.trim().is_empty() => {
+            let translation = t.trim().to_string();
+            overlay_emit(
+                &app,
+                serde_json::json!({
+                    "kind": "success",
+                    "source": source,
+                    "translation": translation,
+                    "target_lang": target,
+                    "bilingual_overlay": true
+                }),
+            );
+        }
+        Ok(_) => {
+            overlay_emit(
+                &app,
+                serde_json::json!({
+                    "kind": "error",
+                    "source": Some(source),
+                    "message": "暂无译文（服务返回空）",
+                    "bilingual_overlay": true
+                }),
+            );
+        }
+        Err(e) => {
+            overlay_emit(
+                &app,
+                serde_json::json!({
+                    "kind": "error",
+                    "source": Some(source.chars().take(200).collect::<String>()),
+                    "message": e,
+                    "bilingual_overlay": true
+                }),
+            );
+        }
+    }
+}
+
+pub(crate) async fn translate_zh_en_selection_first(app: AppHandle) {
+    let source = read_selection_primary_then_clipboard_with_retry().await;
+    translate_bilingual_hotkey_flow_core(app, source, false).await;
 }
 
 #[tauri::command]
@@ -234,10 +363,23 @@ async fn translate_from_clipboard_only(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn translate_from_clipboard_zh_en(app: AppHandle) -> Result<(), String> {
+    let source = selection::read_clipboard_only();
+    translate_bilingual_hotkey_flow_core(app, source, true).await;
+    Ok(())
+}
+
 /// 浮层「重试」：不重新取选区，仅对已知原文再次请求翻译。
 #[tauri::command]
 async fn retry_translate_with_text(app: AppHandle, source: String) -> Result<(), String> {
     translate_flow_core(app, Some(source), false).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn retry_translate_zh_en_with_text(app: AppHandle, source: String) -> Result<(), String> {
+    translate_bilingual_hotkey_flow_core(app, Some(source), false).await;
     Ok(())
 }
 
@@ -263,7 +405,7 @@ fn set_translate_hotkey_preset(
     preset: String,
 ) -> Result<(), String> {
     state.set_preset(&preset)?;
-    register_translate_hotkey(&app, &preset)?;
+    register_translate_hotkeys(&app, &preset)?;
     #[cfg(target_os = "linux")]
     if let Some(w) = app.try_state::<wayland_shortcut::HotkeyPresetWatch>() {
         let _ = w.0.send(preset.clone());
@@ -277,6 +419,18 @@ fn set_translate_hotkey_preset(
 async fn trigger_translate_overlay(app: AppHandle) -> Result<(), String> {
     translate_flow_selection_first(app).await;
     Ok(())
+}
+
+/// 与 Ctrl+Shift+2 相同：中英翻译浮层（先 PRIMARY 划词，再剪贴板）。
+#[tauri::command]
+async fn trigger_zh_en_overlay(app: AppHandle) -> Result<(), String> {
+    translate_zh_en_selection_first(app).await;
+    Ok(())
+}
+
+#[tauri::command]
+fn write_clipboard_text(text: String) -> Result<(), String> {
+    selection::write_clipboard_text(&text)
 }
 
 #[tauri::command]
@@ -360,7 +514,11 @@ fn set_todo_completed(
 }
 
 #[tauri::command]
-fn delete_todo_item(app: AppHandle, store: tauri::State<TodoStore>, id: String) -> Result<(), String> {
+fn delete_todo_item(
+    app: AppHandle,
+    store: tauri::State<TodoStore>,
+    id: String,
+) -> Result<(), String> {
     store.delete_item(&id)?;
     let _ = app.emit("todo-changed", ());
     let _ = app.emit("todo-schedules-changed", ());
@@ -386,7 +544,11 @@ fn add_todo_schedule(
 }
 
 #[tauri::command]
-fn delete_todo_schedule(app: AppHandle, store: tauri::State<TodoStore>, id: String) -> Result<(), String> {
+fn delete_todo_schedule(
+    app: AppHandle,
+    store: tauri::State<TodoStore>,
+    id: String,
+) -> Result<(), String> {
     store.delete_schedule(&id)?;
     let _ = app.emit("todo-schedules-changed", ());
     Ok(())
@@ -436,7 +598,7 @@ pub fn run() {
                     "[WordWing] Wayland：正在通过桌面门户注册全局翻译快捷键；首次使用请在系统对话框中确认。"
                 );
             }
-            register_translate_hotkey(&app.handle(), &preset)
+            register_translate_hotkeys(app.handle(), &preset)
                 .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             Ok(())
         })
@@ -448,7 +610,11 @@ pub fn run() {
             set_vocabulary_starred,
             record_vocab_review,
             translate_from_clipboard_only,
+            translate_from_clipboard_zh_en,
             retry_translate_with_text,
+            retry_translate_zh_en_with_text,
+            write_clipboard_text,
+            trigger_zh_en_overlay,
             get_translate_hotkey_preset,
             get_translate_hotkey_display,
             list_translate_hotkey_choices,

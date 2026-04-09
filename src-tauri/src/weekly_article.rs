@@ -118,7 +118,11 @@ impl WeeklyArticleStore {
     }
 
     /// LLM 返回后落盘（不更新「每周一次」相关字段，该限制已暂时关闭）。
-    pub fn finish_generation(&self, raw_llm: &str, phrases: &[String]) -> Result<SavedArticle, String> {
+    pub fn finish_generation(
+        &self,
+        raw_llm: &str,
+        phrases: &[String],
+    ) -> Result<SavedArticle, String> {
         let mut g = self.inner.lock().map_err(|e| e.to_string())?;
         let parsed = parse_llm_segments_json(raw_llm, phrases)?;
         let now = Utc::now().to_rfc3339();
@@ -191,18 +195,15 @@ fn parse_llm_segments_json(raw: &str, allowed: &[String]) -> Result<ParsedArticl
     }
     let s = s.trim();
 
-    let env: LlmEnvelope = serde_json::from_str(s).map_err(|e| format!("模型返回非预期 JSON：{}", e))?;
+    let env: LlmEnvelope =
+        serde_json::from_str(s).map_err(|e| format!("模型返回非预期 JSON：{}", e))?;
 
     let set: HashSet<&str> = allowed.iter().map(|x| x.as_str()).collect();
     let mut out: Vec<ArticleSegment> = Vec::new();
 
     for seg in env.segments {
         let kind = seg.kind.to_lowercase();
-        let content = if !seg.c.is_empty() {
-            seg.c
-        } else {
-            seg.text
-        };
+        let content = if !seg.c.is_empty() { seg.c } else { seg.text };
         match kind.as_str() {
             "vocab" | "v" => {
                 if set.contains(content.trim()) {
@@ -268,7 +269,10 @@ fn text_ends_sentence_terminator(text: &str) -> bool {
     if t.is_empty() {
         return false;
     }
-    matches!(t.chars().last(), Some('.') | Some('?') | Some('!') | Some('…'))
+    matches!(
+        t.chars().last(),
+        Some('.') | Some('?') | Some('!') | Some('…')
+    )
 }
 
 fn merge_adjacent_text(segs: Vec<ArticleSegment>) -> Vec<ArticleSegment> {

@@ -80,6 +80,10 @@ export function VocabularyPage() {
     void invoke("trigger_translate_overlay");
   };
 
+  const openZhEn = () => {
+    void invoke("trigger_zh_en_overlay");
+  };
+
   const total = payload?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 
@@ -115,8 +119,9 @@ export function VocabularyPage() {
         <strong>收藏</strong> 会加入 <Link to="/english/collection">收藏</Link> 页。
       </p>
       <p className="page-lead">
-        按 <strong>{hotkeyLabel}</strong> 取选区并打开翻译浮层；无选区时回退剪贴板。可在{" "}
-        <Link to="/settings">设置</Link> 更换快捷键。
+        按 <strong>{hotkeyLabel}</strong> 先<strong>划词</strong>再按快捷键打开翻译浮层（Linux 为 PRIMARY）；无划词时回退剪贴板。按{" "}
+        <strong>Ctrl+Shift+2</strong> 打开<strong>中英翻译</strong>浮层（取词顺序相同），自动中↔英，译后可「复制译文」。可在{" "}
+        <Link to="/settings">设置</Link> 更换普通翻译快捷键。
       </p>
 
       {err && (
@@ -129,7 +134,10 @@ export function VocabularyPage() {
         <button type="button" className="settings-save-btn" onClick={openTranslate}>
           打开翻译浮层（划词）
         </button>
-        <span className="cell-muted" style={{ marginLeft: 12, fontSize: 14 }}>
+        <button type="button" className="btn-secondary" style={{ marginLeft: 10 }} onClick={openZhEn}>
+          打开中英翻译浮层
+        </button>
+        <span className="cell-muted" style={{ marginLeft: 12, fontSize: 14, display: "block", marginTop: 8 }}>
           若快捷键无反应，可点此按钮；或先复制文本再走剪贴板路径。
         </span>
       </p>
