@@ -8,12 +8,13 @@ mod translate;
 mod vocabulary;
 #[cfg(target_os = "linux")]
 mod wayland_shortcut;
+mod tray;
 mod weekly_article;
 
 use recent_translations::{RecentTranslationsPage, RecentTranslationsStore};
 use settings::AppSettings;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use todo::{TodoItem, TodoSchedule, TodoStore};
 use vocabulary::{VocabItem, VocabStore};
@@ -554,6 +555,35 @@ fn delete_todo_schedule(
     Ok(())
 }
 
+/// 主窗口最小化后收进托盘：在 GTK 上 `ICONIFIED` 晚于窗口事件一帧，需延迟再读 `is_minimized`。
+/// 前端 `onResized` / `onFocusChanged` 也会调用，与 Rust `on_window_event` 互为补充。
+#[tauri::command]
+fn hide_main_if_minimized(app: AppHandle) -> Result<(), String> {
+    let Some(w) = app.get_webview_window("main") else {
+        return Ok(());
+    };
+    if w.is_minimized().unwrap_or(false) {
+        w.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+fn schedule_hide_main_if_minimized(app: &AppHandle, label: &str) {
+    let app = app.clone();
+    let label = label.to_string();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(160));
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            if let Some(w) = handle.get_webview_window(&label) {
+                if w.is_minimized().unwrap_or(false) {
+                    let _ = w.hide();
+                }
+            }
+        });
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let global_shortcut_plugin = tauri_plugin_global_shortcut::Builder::new().build();
@@ -561,6 +591,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(global_shortcut_plugin)
         .plugin(tauri_plugin_notification::init())
+        .on_window_event(|window, event| {
+            if window.label() != "main" {
+                return;
+            }
+            if matches!(event, WindowEvent::Resized(_) | WindowEvent::Focused(false)) {
+                schedule_hide_main_if_minimized(window.app_handle(), window.label());
+            }
+        })
         .setup(|app| {
             let dir = app.path().app_data_dir().map_err(|e| -> Box<dyn std::error::Error> {
                 e.to_string().into()
@@ -600,6 +638,7 @@ pub fn run() {
             }
             register_translate_hotkeys(app.handle(), &preset)
                 .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            tray::setup_tray(app.handle()).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -629,7 +668,8 @@ pub fn run() {
             delete_todo_item,
             list_todo_schedules,
             add_todo_schedule,
-            delete_todo_schedule
+            delete_todo_schedule,
+            hide_main_if_minimized
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -29,4 +29,5 @@ commands.allow = [
   "list_todo_schedules",
   "add_todo_schedule",
   "delete_todo_schedule",
+  "hide_main_if_minimized",
 ]

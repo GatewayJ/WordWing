@@ -8,6 +8,9 @@ import "@fontsource/dm-sans/600.css";
 import "@fontsource/dm-sans/700.css";
 import "./styles/global.css";
 import App from "./App";
+import { attachMainWindowMinimizeToTray } from "./mainWindowTray";
+
+attachMainWindowMinimizeToTray();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

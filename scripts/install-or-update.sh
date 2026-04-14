@@ -6,7 +6,8 @@ usage() {
   cat <<'EOF'
 WordWing 一键安装或更新（Linux）
   - npm install（可选）、tauri release 构建、安装到 ~/.local/bin/wordwing
-  - 写入/更新 systemd 用户单元并重启服务
+  - 写入/更新 systemd 用户单元并重启服务（与 packaging/systemd/wordwing-user.service 一致）
+  - 部署后：主窗口最小化进托盘；托盘含「打开主窗口」「划词翻译」
 
 用法:
   ./scripts/install-or-update.sh

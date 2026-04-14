@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # 将 WordWing 安装为 systemd 用户单元（随图形会话管理，适合 Linux 桌面）。
+# 与一键脚本 scripts/install-or-update.sh 使用同一单元模板 wordwing-user.service。
+#
 # 用法：
 #   ./install-user-service.sh [wordwing 可执行文件的绝对或相对路径]
 # 未传路径时依次尝试：PATH 中的 wordwing、本仓库 src-tauri/target/release/wordwing
@@ -49,3 +51,7 @@ systemctl --user enable --now wordwing.service
 echo "已执行: systemctl --user enable --now wordwing.service"
 echo "状态:   systemctl --user status wordwing.service"
 echo "日志:   journalctl --user -u wordwing.service -f"
+echo ""
+echo "提示：若托盘/主窗口不显示，请在图形桌面终端执行后重试："
+echo "  systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_SESSION_TYPE"
+echo "  systemctl --user restart wordwing.service"

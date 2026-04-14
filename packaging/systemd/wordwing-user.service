@@ -1,5 +1,9 @@
 # WordWing — systemd 用户单元（随图形会话启动，适合 Linux 桌面）
 #
+# 应用行为（与源码一致）：
+#   - 主窗口最小化后会收到系统托盘；托盘菜单含「打开主窗口」「划词翻译」。
+#   - 须在有图形会话、托盘（StatusNotifier/AppIndicator）可用的桌面环境下运行。
+#
 # 推荐一键安装/更新（构建 + ~/.local/bin + 本单元）：
 #   ./scripts/install-or-update.sh
 # 仅配置 systemd（需已有 wordwing 可执行文件）：
@@ -16,9 +20,16 @@
 # 查看状态：  systemctl --user status wordwing.service
 # 日志：      journalctl --user -u wordwing.service -f
 #
+# systemd 下无窗口/无托盘时（常见：用户单元里缺少 DISPLAY / WAYLAND_DISPLAY）：
+#   在已登录图形桌面的终端执行一次，再重启服务：
+#     systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_SESSION_TYPE
+#     systemctl --user restart wordwing.service
+#   或把上述变量写入 ~/.config/wordwing-env（每行 KEY=value）。
+#
 # 可执行文件常见位置：
-#   - cargo install / 手动拷贝：~/bin/wordwing 或 /usr/local/bin/wordwing
-#   - .deb 安装：              /usr/bin/wordwing（以实际包为准）
+#   - 一键脚本默认：        ~/.local/bin/wordwing
+#   - cargo install / 手动： ~/bin/wordwing 或 /usr/local/bin/wordwing
+#   - .deb 安装：          /usr/bin/wordwing（以实际包为准）
 #   - 开发调试不建议用本单元；请直接 npm run tauri:dev
 #
 # 可选环境变量文件（本单元已引用，不存在也不报错）：
@@ -26,14 +37,14 @@
 #   每行一例： DASHSCOPE_API_KEY=sk-xxxx
 
 [Unit]
-Description=WordWing 桌面助手
+Description=WordWing 桌面助手（主窗口、托盘、划词翻译）
 Documentation=https://github.com/GatewayJ/WordWing
 After=graphical-session.target
 PartOf=graphical-session.target
 
 [Service]
 Type=simple
-# 修改为机器上真实的 wordwing 二进制路径
+# 修改为机器上真实的 wordwing 二进制路径（install-user-service.sh / install-or-update.sh 会自动写入）
 ExecStart=/usr/bin/wordwing
 # 需要时取消注释并填写，或改用 ~/.config/wordwing-env
 # Environment=DASHSCOPE_API_KEY=

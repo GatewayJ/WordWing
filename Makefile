@@ -5,6 +5,7 @@
 help:
 	@echo "make run         启动 Tauri 开发模式（npm run tauri:dev）"
 	@echo "make pre-commit  Rust 格式检查 + clippy + test，前端 tsc --noEmit"
+	@echo "./scripts/install-or-update.sh  构建并安装到 ~/.local/bin + systemd --user（见 packaging/systemd/）"
 
 run:
 	npm run tauri:dev
