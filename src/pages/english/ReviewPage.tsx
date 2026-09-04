@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { PronounceButton } from "../../components/PronounceButton";
 
 type VocabItem = {
   id: string;
@@ -260,7 +261,10 @@ export function ReviewPage() {
                 <span> · 当前间隔 {current.review_interval_days} 天</span>
               ) : null}
             </p>
-            <p className="review-card__prompt">{current.source_text}</p>
+            <div className="review-card__prompt-row text-with-pronunciation">
+              <p className="review-card__prompt">{current.source_text}</p>
+              <PronounceButton text={current.source_text} />
+            </div>
             {!showAnswer ? (
               <button
                 type="button"
@@ -271,7 +275,10 @@ export function ReviewPage() {
               </button>
             ) : (
               <>
-                <p className="review-card__answer">{current.translation}</p>
+                <div className="review-card__answer-row">
+                  <p className="review-card__answer">{current.translation}</p>
+                  <PronounceButton text={current.translation} />
+                </div>
                 <div className="review-card__actions">
                   <button
                     type="button"

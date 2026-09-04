@@ -16,6 +16,7 @@
 - **全局快捷键**（默认 **Ctrl+Shift+1**，与数字行 **1 / !** 同键）：通过 **arboard** 读取 **PRIMARY**（划词）再读标准 **剪贴板**（Linux 上支持 X11 与 Wayland data-control）；调用 DashScope 翻译后，在 **`translate-overlay`** 浮层展示。可在应用内 **设置 → 翻译快捷键** 换预设并立即生效（配置写入 `app_settings.json`）。
 - **浮层**：「收藏」写入本地 `vocabulary.json`（应用数据目录，与 bundle identifier 对应，如 `~/.local/share/com.wordwing.desktop/`）；「用剪贴板再试」「重试」已接命令。
 - **生词页**：表格 **zebra** 行样式；监听 `vocabulary-changed`，与浮层收藏联动刷新；支持删除单行。
+- **单词发音**：翻译浮层、生词、收藏和复习均可点击扬声器播放；周短文正文单击单词发音、双击翻译。优先使用 DashScope `qwen3-tts-flash`，音频立即下载到应用数据目录的 `pronunciation-cache/`，云端失败时回退系统 `SpeechSynthesis`。
 
 配置环境变量 **`DASHSCOPE_API_KEY`**（见设置页说明）。systemd 安装方式应写入 `~/.config/wordwing-env` 并执行 `systemctl --user restart wordwing.service`；开发模式才使用启动终端中的 `export`。**不再依赖** 系统安装 **`xclip`**。
 

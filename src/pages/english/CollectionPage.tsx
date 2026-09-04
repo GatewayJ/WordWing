@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Pencil, Search, Star, Trash2 } from "lucide-react";
+import { PronounceButton } from "../../components/PronounceButton";
 
 type VocabItem = {
   id: string;
@@ -199,12 +200,22 @@ export function CollectionPage() {
                   <td className="cell-word">
                     {editingId === row.id ? (
                       <input className="todo-input" value={editSource} onChange={(e) => setEditSource(e.target.value)} />
-                    ) : row.source_text}
+                    ) : (
+                      <span className="text-with-pronunciation">
+                        <span>{row.source_text}</span>
+                        <PronounceButton text={row.source_text} />
+                      </span>
+                    )}
                   </td>
                   <td>
                     {editingId === row.id ? (
                       <input className="todo-input" value={editTranslation} onChange={(e) => setEditTranslation(e.target.value)} />
-                    ) : row.translation}
+                    ) : (
+                      <span className="text-with-pronunciation">
+                        <span>{row.translation}</span>
+                        <PronounceButton text={row.translation} />
+                      </span>
+                    )}
                   </td>
                   <td className="cell-muted">
                     {editingId === row.id ? (

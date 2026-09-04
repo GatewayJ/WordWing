@@ -5,6 +5,7 @@ commands.allow = [
   "add_vocabulary_item",
   "update_vocabulary_item",
   "get_review_queue",
+  "get_pronunciation_audio",
   "list_vocabulary",
   "list_recent_translations_page",
   "delete_vocabulary_item",

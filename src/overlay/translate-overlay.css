@@ -92,6 +92,20 @@ body {
   word-break: break-word;
 }
 
+.translate-overlay__text-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.translate-overlay__text-row .translate-overlay__source,
+.translate-overlay__text-row .translate-overlay__result {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
 .translate-overlay__result {
   font-size: 15px;
 }

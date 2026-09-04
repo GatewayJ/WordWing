@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { PronounceButton } from "../../components/PronounceButton";
 import { useTranslateHotkeyLabel } from "../../hooks/useTranslateHotkeyLabel";
 
 const PER_PAGE = 10;
@@ -162,8 +163,14 @@ export function VocabularyPage() {
               {payload.items.map((row) => (
                 <li key={row.id} className="recent-list__item">
                   <div className="recent-list__body">
-                    <p className="recent-list__source">{row.source_text}</p>
-                    <p className="recent-list__translation">{row.translation}</p>
+                    <div className="text-with-pronunciation">
+                      <p className="recent-list__source">{row.source_text}</p>
+                      <PronounceButton text={row.source_text} />
+                    </div>
+                    <div className="text-with-pronunciation text-with-pronunciation--translation">
+                      <p className="recent-list__translation">{row.translation}</p>
+                      <PronounceButton text={row.translation} />
+                    </div>
                     <p className="recent-list__meta">
                       <span>{row.target_lang}</span>
                       <span className="recent-list__time">{formatTime(row.created_at)}</span>

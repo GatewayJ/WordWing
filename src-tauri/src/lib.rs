@@ -1,5 +1,6 @@
 #[cfg(target_os = "linux")]
 mod gnome_shortcut;
+mod pronunciation;
 mod recent_translations;
 mod selection;
 mod settings;
@@ -14,6 +15,7 @@ mod tray;
 mod weekly_article;
 
 use recent_translations::{RecentTranslationsPage, RecentTranslationsStore};
+use pronunciation::{PronunciationAudio, PronunciationService};
 use settings::AppSettings;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
@@ -338,6 +340,30 @@ fn update_vocabulary_item(
 #[tauri::command]
 fn get_review_queue(store: tauri::State<VocabStore>) -> Result<ReviewQueue, String> {
     store.review_queue()
+}
+
+#[tauri::command]
+async fn get_pronunciation_audio(
+    service: tauri::State<'_, PronunciationService>,
+    text: String,
+    language: Option<String>,
+) -> Result<PronunciationAudio, String> {
+    let text_chars = text.chars().count();
+    eprintln!("[WordWing][pronunciation] request chars={text_chars}");
+    match service.get_audio(&text, language.as_deref()).await {
+        Ok(audio) => {
+            eprintln!(
+                "[WordWing][pronunciation] ready source={} bytes={}",
+                if audio.cached() { "cache" } else { "dashscope" },
+                audio.encoded_len() * 3 / 4
+            );
+            Ok(audio)
+        }
+        Err(error) => {
+            eprintln!("[WordWing][pronunciation] failed: {error}");
+            Err(error)
+        }
+    }
 }
 
 #[tauri::command]
@@ -681,6 +707,9 @@ pub fn run() {
             app.manage(app_settings);
             let todo_store = TodoStore::open(&db).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(todo_store);
+            let pronunciation = PronunciationService::new(&dir)
+                .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+            app.manage(pronunciation);
             todo_notify::spawn_schedule_notification_loop(app.handle().clone());
             #[cfg(target_os = "linux")]
             if std::env::var_os("WAYLAND_DISPLAY").is_some() {
@@ -709,6 +738,7 @@ pub fn run() {
             add_vocabulary_item,
             update_vocabulary_item,
             get_review_queue,
+            get_pronunciation_audio,
             list_recent_translations_page,
             delete_vocabulary_item,
             set_vocabulary_starred,

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Clock3, Sparkles } from "lucide-react";
+import { playPronunciation, preparePronunciationPlayback } from "../../lib/pronunciation";
 
 type ArticleSegment =
   | { kind: "text"; c: string }
@@ -46,6 +47,11 @@ export function WeeklyPage() {
   const [generating, setGenerating] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [selectedGeneratedAt, setSelectedGeneratedAt] = useState<string | null>(null);
+  const wordClickTimer = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (wordClickTimer.current !== null) window.clearTimeout(wordClickTimer.current);
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -123,21 +129,36 @@ export function WeeklyPage() {
     : status?.article ?? null;
 
   const translateWord = (word: string) => {
+    if (wordClickTimer.current !== null) {
+      window.clearTimeout(wordClickTimer.current);
+      wordClickTimer.current = null;
+    }
     void invoke("retry_translate_with_text", { source: word }).catch((e) => setErr(String(e)));
+  };
+
+  const pronounceWord = (word: string) => {
+    preparePronunciationPlayback();
+    if (wordClickTimer.current !== null) window.clearTimeout(wordClickTimer.current);
+    wordClickTimer.current = window.setTimeout(() => {
+      wordClickTimer.current = null;
+      void playPronunciation(word).catch((e) => setErr(String(e)));
+    }, 220);
   };
 
   const renderWords = (text: string) => {
     const parts = text.split(/(\p{L}[\p{L}\p{M}'’-]*|\p{N}+)/gu);
     return parts.map((part, index) =>
       /^(\p{L}[\p{L}\p{M}'’-]*|\p{N}+)$/u.test(part) ? (
-        <span
+        <button
+          type="button"
           key={index}
           className="weekly-word"
-          title="双击翻译并可收藏"
+          title="单击发音；双击翻译并可收藏"
+          onClick={() => pronounceWord(part)}
           onDoubleClick={() => translateWord(part)}
         >
           {part}
-        </span>
+        </button>
       ) : (
         <span key={index}>{part}</span>
       ),
@@ -148,7 +169,7 @@ export function WeeklyPage() {
     <>
       <h2 className="page-title">周短文</h2>
       <p className="page-lead">
-        按<strong>当前自然周</strong>（ISO 周，周一为一周之始）内加入<strong>收藏</strong>的原文短语组稿；每次生成都会保留历史。正文里用下划线标出所用词条，<strong>双击任意单词</strong>可打开独立翻译浮层并收藏。配合{" "}
+        按<strong>当前自然周</strong>（ISO 周，周一为一周之始）内加入<strong>收藏</strong>的原文短语组稿；每次生成都会保留历史。正文里用下划线标出所用词条；<strong>单击单词发音，双击翻译</strong>并可收藏。配合{" "}
         <Link to="/english/vocabulary">生词</Link>、<Link to="/english/collection">收藏</Link> 与{" "}
         <Link to="/english/review">复习</Link> 使用。
       </p>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { PronounceButton } from "../components/PronounceButton";
 import { useTranslateHotkeyLabel } from "../hooks/useTranslateHotkeyLabel";
 import "./translate-overlay.css";
 
@@ -161,10 +162,16 @@ export function TranslateOverlay() {
 
         {state.kind === "success" && (
           <div className="translate-overlay__panel">
-            <p className="translate-overlay__source">
-              <strong>{state.source}</strong>
-            </p>
-            <p className="translate-overlay__result">{state.translation}</p>
+            <div className="translate-overlay__text-row">
+              <p className="translate-overlay__source">
+                <strong>{state.source}</strong>
+              </p>
+              <PronounceButton text={state.source} />
+            </div>
+            <div className="translate-overlay__text-row">
+              <p className="translate-overlay__result">{state.translation}</p>
+              <PronounceButton text={state.translation} />
+            </div>
             <p className="translate-overlay__meta">目标：{state.target_lang}</p>
             {saveMsg && (
               <p

@@ -396,6 +396,58 @@ a:focus-visible {
   color: var(--error);
 }
 
+.pronunciation-button {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-width: 1px;
+  color: var(--primary);
+  background: var(--surface);
+}
+
+.pronunciation-button:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary-hover);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+
+.pronunciation-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.pronunciation-button--playing {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+}
+
+.pronunciation-button--error {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.pronunciation-button--loading svg {
+  animation: pronunciation-spin 800ms linear infinite;
+}
+
+.text-with-pronunciation {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.text-with-pronunciation > :first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+@keyframes pronunciation-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .settings-label {
   display: block;
   font-size: 11px;
@@ -654,6 +706,15 @@ a:focus-visible {
   color: var(--text);
 }
 
+.review-card__prompt-row {
+  align-items: center;
+  margin: 0 0 20px;
+}
+
+.review-card__prompt-row .review-card__prompt {
+  margin: 0;
+}
+
 .review-card__reveal {
   margin-top: 4px;
 }
@@ -666,6 +727,19 @@ a:focus-visible {
   background: var(--zebra);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
+}
+
+.review-card__answer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+
+.review-card__answer-row .review-card__answer {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
 }
 
 .review-card__actions {
@@ -860,6 +934,14 @@ a:focus-visible {
 }
 
 .weekly-word {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
   cursor: pointer;
   border-radius: 3px;
   transition: background 120ms ease;
@@ -867,6 +949,11 @@ a:focus-visible {
 
 .weekly-word:hover {
   background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.weekly-word:focus-visible {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  outline-offset: 1px;
 }
 
 .weekly-history {
@@ -1026,6 +1113,19 @@ a:focus-visible {
   margin: 0 0 6px;
   color: var(--text);
   word-break: break-word;
+}
+
+.recent-list__body > .text-with-pronunciation {
+  margin-bottom: 6px;
+}
+
+.recent-list__body > .text-with-pronunciation .recent-list__source,
+.recent-list__body > .text-with-pronunciation .recent-list__translation {
+  margin-bottom: 0;
+}
+
+.recent-list__body > .text-with-pronunciation--translation {
+  margin-bottom: 8px;
 }
 
 .recent-list__translation {

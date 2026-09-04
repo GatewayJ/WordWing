@@ -44,11 +44,14 @@ export function SettingsPage() {
     <>
       <h2 className="page-title">设置</h2>
       <p className="page-lead">
-        翻译使用阿里云 DashScope。密钥<strong>不要</strong>写进前端。当前 systemd 安装方式请写入{" "}
+        翻译和高质量发音使用阿里云 DashScope。密钥<strong>不要</strong>写进前端。当前 systemd 安装方式请写入{" "}
         <code style={{ fontSize: 13 }}>~/.config/wordwing-env</code>，内容为{" "}
         <code style={{ fontSize: 13 }}>DASHSCOPE_API_KEY=你的密钥</code>，然后执行{" "}
         <code style={{ fontSize: 13 }}>systemctl --user restart wordwing.service</code>。仅开发模式使用终端{" "}
         <code style={{ fontSize: 13 }}>export</code>。
+      </p>
+      <p className="page-lead" style={{ marginTop: -16 }}>
+        单词旁的扬声器按钮使用 <strong>Qwen3-TTS</strong>，生成后缓存在应用数据目录；云端不可用时自动尝试系统语音。
       </p>
 
       <div className="card" style={{ maxWidth: "32rem" }}>
