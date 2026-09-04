@@ -89,7 +89,7 @@ export function TranslateOverlay() {
   }, [state]);
 
   const copyTranslation = useCallback(async () => {
-    if (state.kind !== "success" || !isBilingualOverlay(state)) return;
+    if (state.kind !== "success") return;
     setCopyMsg(null);
     try {
       await invoke("write_clipboard_text", { text: state.translation });
@@ -134,10 +134,10 @@ export function TranslateOverlay() {
           <div className="translate-overlay__panel">
             <p className="translate-overlay__error">{state.reason}</p>
             <div className="translate-overlay__actions">
-              <button type="button" className="btn-ghost" onClick={retryFromClipboard}>
+              <button type="button" className="btn-primary" onClick={retryFromClipboard}>
                 用剪贴板再试
               </button>
-              <button type="button" className="btn-ghost" onClick={hide}>
+              <button type="button" className="btn-secondary" onClick={hide}>
                 关闭
               </button>
             </div>
@@ -166,7 +166,7 @@ export function TranslateOverlay() {
             </p>
             <p className="translate-overlay__result">{state.translation}</p>
             <p className="translate-overlay__meta">目标：{state.target_lang}</p>
-            {saveMsg && !isBilingualOverlay(state) && (
+            {saveMsg && (
               <p
                 className="translate-overlay__muted"
                 style={{
@@ -189,20 +189,16 @@ export function TranslateOverlay() {
               </p>
             )}
             <div className="translate-overlay__actions">
-              {isBilingualOverlay(state) && (
-                <button type="button" className="btn-primary" onClick={() => void copyTranslation()}>
-                  复制译文
-                </button>
-              )}
-              {!isBilingualOverlay(state) && (
-                <button type="button" className="btn-primary" disabled={saving} onClick={() => void save()}>
-                  {saving ? "保存中…" : "收藏"}
-                </button>
-              )}
-              <button type="button" className="btn-ghost" onClick={retryFromClipboard}>
+              <button type="button" className="btn-primary" onClick={() => void copyTranslation()}>
+                复制译文
+              </button>
+              <button type="button" className="btn-secondary" disabled={saving} onClick={() => void save()}>
+                {saving ? "保存中…" : "收藏"}
+              </button>
+              <button type="button" className="btn-secondary" onClick={retryFromClipboard}>
                 重试
               </button>
-              <button type="button" className="btn-ghost" onClick={hide}>
+              <button type="button" className="btn-secondary" onClick={hide}>
                 关闭
               </button>
             </div>
@@ -219,7 +215,7 @@ export function TranslateOverlay() {
               <button type="button" className="btn-primary" onClick={retryFromClipboard}>
                 重试（读剪贴板）
               </button>
-              <button type="button" className="btn-ghost" onClick={hide}>
+              <button type="button" className="btn-secondary" onClick={hide}>
                 关闭
               </button>
             </div>

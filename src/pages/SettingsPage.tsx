@@ -44,8 +44,11 @@ export function SettingsPage() {
     <>
       <h2 className="page-title">设置</h2>
       <p className="page-lead">
-        翻译使用阿里云 DashScope。密钥<strong>不要</strong>写进前端，请在启动应用的终端里{" "}
-        <code style={{ fontSize: 13 }}>export DASHSCOPE_API_KEY=你的密钥</code>。
+        翻译使用阿里云 DashScope。密钥<strong>不要</strong>写进前端。当前 systemd 安装方式请写入{" "}
+        <code style={{ fontSize: 13 }}>~/.config/wordwing-env</code>，内容为{" "}
+        <code style={{ fontSize: 13 }}>DASHSCOPE_API_KEY=你的密钥</code>，然后执行{" "}
+        <code style={{ fontSize: 13 }}>systemctl --user restart wordwing.service</code>。仅开发模式使用终端{" "}
+        <code style={{ fontSize: 13 }}>export</code>。
       </p>
 
       <div className="card" style={{ maxWidth: "32rem" }}>
@@ -57,7 +60,7 @@ export function SettingsPage() {
         </h3>
         <p className="page-lead" style={{ marginBottom: 12 }}>
           默认 <strong>Ctrl+Shift+1</strong>。保存后会立即重注册。
-          在 <strong>Linux Wayland</strong> 下，若已安装桌面门户，系统可能弹出对话框要求确认「全局快捷键」绑定。
+          在 <strong>GNOME Wayland</strong> 下使用 Shell 原生自定义快捷键；其它 Wayland 桌面优先使用门户授权。
         </p>
         <p className="page-lead" style={{ marginBottom: 12 }}>
           <strong>不依赖门户时：</strong>使用 <strong>X11</strong> 会话登录桌面（全局快捷键由系统常规通道注册），或始终在{" "}

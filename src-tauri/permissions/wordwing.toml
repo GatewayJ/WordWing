@@ -3,6 +3,8 @@ identifier = "allow-wordwing-ipc"
 description = "WordWing 自定义命令：生词、翻译浮层、快捷键等（主窗口与 translate-overlay 共用）。"
 commands.allow = [
   "add_vocabulary_item",
+  "update_vocabulary_item",
+  "get_review_queue",
   "list_vocabulary",
   "list_recent_translations_page",
   "delete_vocabulary_item",
@@ -28,6 +30,7 @@ commands.allow = [
   "delete_todo_item",
   "list_todo_schedules",
   "add_todo_schedule",
+  "update_todo_schedule",
   "delete_todo_schedule",
   "hide_main_if_minimized",
 ]

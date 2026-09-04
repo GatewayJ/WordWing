@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+mod gnome_shortcut;
 mod recent_translations;
 mod selection;
 mod settings;
@@ -17,7 +19,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use todo::{TodoItem, TodoSchedule, TodoStore};
-use vocabulary::{VocabItem, VocabStore};
+use vocabulary::{ReviewQueue, VocabItem, VocabStore};
 use weekly_article::{SavedArticle, WeeklyArticleStore, WeeklyStatusDto};
 
 /// Tauri 2：对 `WebviewWindow` 调用 `emit` 时，事件未必投递到该 label 的 Webview；
@@ -37,6 +39,12 @@ fn overlay_bring_up(win: &tauri::WebviewWindow) {
 
 /// 普通翻译（设置中的预设）+ 固定 **Ctrl+Shift+2** 中英翻译（划词/剪贴板，与主流程相同取词顺序）。
 fn register_translate_hotkeys(app: &AppHandle, preset: &str) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    if gnome_shortcut::should_use() {
+        gnome_shortcut::install(preset)?;
+        return Ok(());
+    }
+
     let sc = settings::preset_to_shortcut(preset)?;
     let sc_zh_en = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Digit2);
     let gs = app.global_shortcut();
@@ -116,7 +124,7 @@ async fn translate_flow_core(app: AppHandle, source: Option<String>, clipboard_o
                 serde_json::json!({
                     "kind": "error",
                     "source": Some(source.chars().take(200).collect::<String>()),
-                    "message": "未配置 DASHSCOPE_API_KEY。请在启动应用的终端中执行 export DASHSCOPE_API_KEY=…，或写入 ~/.bashrc / ~/.profile。"
+                    "message": "未配置 DASHSCOPE_API_KEY。systemd 安装请写入 ~/.config/wordwing-env 后重启 wordwing.service；开发模式可在启动终端 export。"
                 }),
             );
             return;
@@ -236,7 +244,7 @@ async fn translate_bilingual_hotkey_flow_core(
                 serde_json::json!({
                     "kind": "error",
                     "source": Some(source.chars().take(200).collect::<String>()),
-                    "message": "未配置 DASHSCOPE_API_KEY。请在启动应用的终端中执行 export DASHSCOPE_API_KEY=…，或写入 ~/.bashrc / ~/.profile。",
+                    "message": "未配置 DASHSCOPE_API_KEY。systemd 安装请写入 ~/.config/wordwing-env 后重启 wordwing.service；开发模式可在启动终端 export。",
                     "bilingual_overlay": true
                 }),
             );
@@ -311,6 +319,25 @@ fn add_vocabulary_item(
     )?;
     let _ = app.emit("vocabulary-changed", ());
     Ok(item)
+}
+
+#[tauri::command]
+fn update_vocabulary_item(
+    app: AppHandle,
+    store: tauri::State<VocabStore>,
+    id: String,
+    source_text: String,
+    translation: String,
+    target_lang: String,
+) -> Result<VocabItem, String> {
+    let item = store.update(&id, source_text, translation, target_lang)?;
+    let _ = app.emit("vocabulary-changed", ());
+    Ok(item)
+}
+
+#[tauri::command]
+fn get_review_queue(store: tauri::State<VocabStore>) -> Result<ReviewQueue, String> {
+    store.review_queue()
 }
 
 #[tauri::command]
@@ -449,7 +476,7 @@ async fn generate_weekly_article(
     weekly: tauri::State<'_, WeeklyArticleStore>,
 ) -> Result<SavedArticle, String> {
     let api_key = std::env::var("DASHSCOPE_API_KEY").map_err(|_| {
-        "未配置 DASHSCOPE_API_KEY。请在启动终端执行 export DASHSCOPE_API_KEY=…（与翻译浮层相同）。".to_string()
+        "未配置 DASHSCOPE_API_KEY。systemd 安装请写入 ~/.config/wordwing-env 后重启 wordwing.service；开发模式可在启动终端 export。".to_string()
     })?;
     let api_key = api_key.trim().to_string();
     if api_key.is_empty() {
@@ -511,6 +538,7 @@ fn set_todo_completed(
 ) -> Result<(), String> {
     store.set_completed(&id, completed)?;
     let _ = app.emit("todo-changed", ());
+    let _ = app.emit("todo-schedules-changed", ());
     Ok(())
 }
 
@@ -542,6 +570,20 @@ fn add_todo_schedule(
     let sch = store.add_schedule(title, fire_at, todo_id)?;
     let _ = app.emit("todo-schedules-changed", ());
     Ok(sch)
+}
+
+#[tauri::command]
+fn update_todo_schedule(
+    app: AppHandle,
+    store: tauri::State<TodoStore>,
+    id: String,
+    title: String,
+    fire_at: String,
+    todo_id: Option<String>,
+) -> Result<TodoSchedule, String> {
+    let schedule = store.update_schedule(&id, title, fire_at, todo_id)?;
+    let _ = app.emit("todo-schedules-changed", ());
+    Ok(schedule)
 }
 
 #[tauri::command]
@@ -642,13 +684,20 @@ pub fn run() {
             todo_notify::spawn_schedule_notification_loop(app.handle().clone());
             #[cfg(target_os = "linux")]
             if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-                let (tx, rx) = tokio::sync::watch::channel(preset.clone());
-                let app_h = app.handle().clone();
-                tauri::async_runtime::spawn(wayland_shortcut::portal_hotkey_loop(app_h, rx));
-                app.manage(wayland_shortcut::HotkeyPresetWatch(tx));
-                eprintln!(
-                    "[WordWing] Wayland：正在通过桌面门户注册全局翻译快捷键；首次使用请在系统对话框中确认。"
-                );
+                if gnome_shortcut::should_use() {
+                    gnome_shortcut::spawn_signal_loop(app.handle().clone());
+                    eprintln!(
+                        "[WordWing] GNOME/Wayland：使用 Shell custom-keybindings 注册全局翻译快捷键。"
+                    );
+                } else {
+                    let (tx, rx) = tokio::sync::watch::channel(preset.clone());
+                    let app_h = app.handle().clone();
+                    tauri::async_runtime::spawn(wayland_shortcut::portal_hotkey_loop(app_h, rx));
+                    app.manage(wayland_shortcut::HotkeyPresetWatch(tx));
+                    eprintln!(
+                        "[WordWing] Wayland：正在通过桌面门户注册全局翻译快捷键；首次使用请在系统对话框中确认。"
+                    );
+                }
             }
             register_translate_hotkeys(app.handle(), &preset)
                 .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
@@ -658,6 +707,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_vocabulary,
             add_vocabulary_item,
+            update_vocabulary_item,
+            get_review_queue,
             list_recent_translations_page,
             delete_vocabulary_item,
             set_vocabulary_starred,
@@ -682,6 +733,7 @@ pub fn run() {
             delete_todo_item,
             list_todo_schedules,
             add_todo_schedule,
+            update_todo_schedule,
             delete_todo_schedule,
             hide_main_if_minimized
         ])

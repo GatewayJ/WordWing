@@ -7,6 +7,7 @@ use crate::translate::dashscope_api_key_configured;
 use crate::vocabulary::{VocabItem, VocabStore};
 
 const MAX_PHRASES: usize = 36;
+const MAX_HISTORY: usize = 52;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -20,6 +21,9 @@ pub struct WeeklyFileState {
     pub last_generation_cutoff_rfc3339: Option<String>,
     #[serde(default)]
     pub article: Option<SavedArticle>,
+    /// 所有已生成短文，最新在前；保留最近一年份量。
+    #[serde(default)]
+    pub history: Vec<SavedArticle>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +52,7 @@ pub struct WeeklyStatusDto {
     pub can_generate_this_week: bool,
     pub week_label_zh: String,
     pub article: Option<SavedArticle>,
+    pub history: Vec<SavedArticle>,
     pub new_phrase_count: usize,
     pub block_reason: Option<String>,
     /// 已配置 DASHSCOPE_API_KEY（与翻译浮层相同）；前端据此决定是否展示「需配置 Key」说明。
@@ -62,7 +67,7 @@ pub struct WeeklyArticleStore {
 impl WeeklyArticleStore {
     pub fn open(db: &sled::Db) -> Result<Self, String> {
         let tree = db.open_tree("weekly").map_err(|e| e.to_string())?;
-        let state = match tree.get(b"state").map_err(|e| e.to_string())? {
+        let mut state = match tree.get(b"state").map_err(|e| e.to_string())? {
             None => WeeklyFileState::default(),
             Some(v) => {
                 if v.is_empty() {
@@ -72,6 +77,12 @@ impl WeeklyArticleStore {
                 }
             }
         };
+        // 旧版本只保存 article；以内存迁移方式把它纳入历史，下次生成时一并持久化。
+        if state.history.is_empty() {
+            if let Some(article) = state.article.clone() {
+                state.history.push(article);
+            }
+        }
         Ok(Self {
             tree,
             inner: Mutex::new(state),
@@ -99,6 +110,7 @@ impl WeeklyArticleStore {
             can_generate_this_week: true,
             week_label_zh: Self::week_label_zh(),
             article: g.article.clone(),
+            history: g.history.clone(),
             new_phrase_count: new_phrases.len(),
             block_reason: None,
             dashscope_configured: dashscope_api_key_configured(),
@@ -133,9 +145,29 @@ impl WeeklyArticleStore {
             segments: parsed.segments,
             source_phrases: phrases.to_vec(),
         };
+        g.history.insert(0, article.clone());
+        g.history.truncate(MAX_HISTORY);
         g.article = Some(article.clone());
         Self::persist_locked(&g, &self.tree)?;
         Ok(article)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WeeklyArticleStore;
+
+    #[test]
+    fn generated_articles_are_kept_in_history() {
+        let db = sled::Config::new().temporary(true).open().unwrap();
+        let store = WeeklyArticleStore::open(&db).unwrap();
+        let allowed = vec!["hello".to_string()];
+        let raw = r#"{"title":"One","segments":[{"kind":"vocab","c":"hello"}]}"#;
+        store.finish_generation(raw, &allowed).unwrap();
+        store.finish_generation(raw, &allowed).unwrap();
+        let state = store.inner.lock().unwrap();
+        assert_eq!(state.history.len(), 2);
+        assert_eq!(state.article.as_ref().unwrap().title, "One");
     }
 }
 

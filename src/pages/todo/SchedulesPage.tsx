@@ -3,7 +3,12 @@ import { Link, useSearchParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { PlainDateTimeFields } from "../../components/PlainDateTimeFields";
-import { dateTimePartsToIso, validateDatePart, validateTimePart } from "../../lib/datetimeInput";
+import {
+  dateTimePartsToIso,
+  isoToDateTimeParts,
+  validateDatePart,
+  validateTimePart,
+} from "../../lib/datetimeInput";
 
 type TodoItem = {
   id: string;
@@ -22,6 +27,7 @@ type TodoSchedule = {
   createdAt: string;
   /** 是否已推送系统通知 */
   notificationSent?: boolean;
+  cancelled?: boolean;
 };
 
 function formatFire(iso: string) {
@@ -50,6 +56,7 @@ export function SchedulesPage() {
   const [fireTimeStr, setFireTimeStr] = useState("");
   const [linkTodoId, setLinkTodoId] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<TodoSchedule | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -120,17 +127,13 @@ export function SchedulesPage() {
     setSaving(true);
     setErr(null);
     try {
-      await invoke("add_todo_schedule", {
-        title: t,
-        fireAt,
-        todoId: linkTodoId || null,
-      });
-      setTitle("");
-      setFireDateStr("");
-      setFireTimeStr("");
-      if (!todoIdFromUrl) {
-        setLinkTodoId("");
+      const payload = { title: t, fireAt, todoId: linkTodoId || null };
+      if (editing) {
+        await invoke("update_todo_schedule", { id: editing.id, ...payload });
+      } else {
+        await invoke("add_todo_schedule", payload);
       }
+      resetForm();
       setSearchParams((prev) => {
         const n = new URLSearchParams(prev);
         n.delete("todoId");
@@ -144,10 +147,30 @@ export function SchedulesPage() {
     }
   };
 
+  const resetForm = () => {
+    setEditing(null);
+    setTitle("");
+    setFireDateStr("");
+    setFireTimeStr("");
+    if (!todoIdFromUrl) setLinkTodoId("");
+  };
+
+  const startEdit = (schedule: TodoSchedule) => {
+    const parts = isoToDateTimeParts(schedule.fireAt);
+    setEditing(schedule);
+    setTitle(schedule.title);
+    setFireDateStr(parts.date);
+    setFireTimeStr(parts.time);
+    setLinkTodoId(schedule.todoId ?? "");
+    setErr(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const remove = async (id: string) => {
     if (!window.confirm("确定删除该定时？")) return;
     try {
       await invoke("delete_todo_schedule", { id });
+      if (editing?.id === id) resetForm();
       await loadAll();
     } catch (e) {
       setErr(String(e));
@@ -169,7 +192,7 @@ export function SchedulesPage() {
       </p>
       <p className="page-lead cell-muted" style={{ fontSize: 14 }}>
         应用运行期间约每 30 秒检查一次到期定时，通过<strong>系统通知</strong>提醒（每条仅推送一次）。请允许通知权限；Linux 需已安装{" "}
-        <code style={{ fontSize: 13 }}>libnotify</code> 等（一般桌面已带）。
+        <code style={{ fontSize: 13 }}>libnotify</code> 等（一般桌面已带）。应用未运行期间错过的提醒会在下次启动后补发。
       </p>
 
       {err && (
@@ -179,7 +202,7 @@ export function SchedulesPage() {
       )}
 
       <div className="card todo-form-card">
-        <h3 className="todo-form-card__title">新建定时</h3>
+        <h3 className="todo-form-card__title">{editing ? "编辑定时" : "新建定时"}</h3>
         <form className="todo-form" onSubmit={(e) => void submit(e)}>
           <label className="settings-label" htmlFor="sch-title">
             提醒标题
@@ -216,7 +239,7 @@ export function SchedulesPage() {
           >
             <option value="">独立提醒（不关联条目）</option>
             {items
-              .filter((x) => !x.completed)
+              .filter((x) => !x.completed || x.id === linkTodoId)
               .map((x) => (
                 <option key={x.id} value={x.id}>
                   {x.title}
@@ -225,8 +248,13 @@ export function SchedulesPage() {
           </select>
           <div className="todo-form__actions">
             <button type="submit" className="settings-save-btn" disabled={saving}>
-              {saving ? "保存中…" : "添加定时"}
+              {saving ? "保存中…" : editing ? "保存修改" : "添加定时"}
             </button>
+            {editing ? (
+              <button type="button" className="btn-secondary" onClick={resetForm}>
+                取消编辑
+              </button>
+            ) : null}
           </div>
         </form>
       </div>
@@ -262,12 +290,17 @@ export function SchedulesPage() {
                     )}
                   </td>
                   <td className="cell-muted">
-                    {row.notificationSent ? "已推送" : new Date(row.fireAt).getTime() <= Date.now() ? "待推送" : "—"}
+                    {row.cancelled ? "已暂停" : row.notificationSent ? "已推送" : new Date(row.fireAt).getTime() <= Date.now() ? "待补发" : "—"}
                   </td>
                   <td>
-                    <button type="button" className="btn-secondary btn-small" onClick={() => void remove(row.id)}>
-                      删除
-                    </button>
+                    <div className="todo-row__actions">
+                      <button type="button" className="btn-secondary btn-small" onClick={() => startEdit(row)}>
+                        编辑
+                      </button>
+                      <button type="button" className="btn-secondary btn-small" onClick={() => void remove(row.id)}>
+                        删除
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

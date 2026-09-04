@@ -675,6 +675,14 @@ a:focus-visible {
   align-items: center;
 }
 
+.review-complete__early {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
 /* 周短文 */
 .weekly-hero {
   max-width: 42rem;
@@ -851,6 +859,68 @@ a:focus-visible {
   padding: 22px 24px 24px;
 }
 
+.weekly-word {
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 120ms ease;
+}
+
+.weekly-word:hover {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.weekly-history {
+  max-width: 42rem;
+  margin-top: 16px;
+}
+
+.weekly-history__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.weekly-history__head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.weekly-history__head span {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.weekly-history__list {
+  display: grid;
+  gap: 8px;
+}
+
+.weekly-history__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.weekly-history__item span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.weekly-history__item--active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+}
+
 .weekly-article__para {
   font-family: var(--font-serif);
   font-size: 1.125rem;
@@ -1019,6 +1089,26 @@ a:focus-visible {
 }
 
 /* Todo：条目与定时 */
+
+.collection-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 34rem;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  color: var(--muted);
+}
+
+.collection-search .todo-input {
+  border: 0;
+  padding: 4px 0;
+  background: transparent;
+}
+
+.collection-search .todo-input:focus {
+  outline: none;
+}
 .btn-small {
   font-size: 13px;
   padding: 6px 12px;

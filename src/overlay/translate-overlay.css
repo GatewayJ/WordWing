@@ -124,6 +124,16 @@ body {
   margin-top: 12px;
 }
 
+.translate-overlay__actions > button {
+  flex: 1 1 108px;
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .btn-primary {
   font-family: var(--font-sans);
   font-weight: 700;
@@ -145,23 +155,6 @@ body {
 .btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.btn-ghost {
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 14px;
-  padding: 8px 10px;
-  border: none;
-  background: transparent;
-  color: var(--link);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.btn-ghost:hover {
-  color: var(--link-hover);
 }
 
 .translate-overlay__skeleton {

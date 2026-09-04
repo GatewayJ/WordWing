@@ -62,8 +62,10 @@ if [[ ! -x "$BUILD_ARTIFACT" ]]; then
 fi
 
 mkdir -p "$INSTALL_DIR"
-cp -f "$BUILD_ARTIFACT" "$INSTALLED"
-chmod +x "$INSTALLED"
+TEMP_INSTALLED="$(mktemp "${INSTALL_DIR}/.${BIN_NAME}.XXXXXX")"
+install -m 0755 "$BUILD_ARTIFACT" "$TEMP_INSTALLED"
+# 原子替换：即使旧二进制正在运行也不会触发 Text file busy，随后重启加载新 inode。
+mv -f "$TEMP_INSTALLED" "$INSTALLED"
 echo "已安装: $INSTALLED"
 
 if [[ "$BIN_ONLY" -eq 1 ]]; then

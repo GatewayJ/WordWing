@@ -17,9 +17,9 @@
 - **浮层**：「收藏」写入本地 `vocabulary.json`（应用数据目录，与 bundle identifier 对应，如 `~/.local/share/com.wordwing.desktop/`）；「用剪贴板再试」「重试」已接命令。
 - **生词页**：表格 **zebra** 行样式；监听 `vocabulary-changed`，与浮层收藏联动刷新；支持删除单行。
 
-配置环境变量 **`DASHSCOPE_API_KEY`**（见设置页说明）。**不再依赖** 系统安装 **`xclip`**。
+配置环境变量 **`DASHSCOPE_API_KEY`**（见设置页说明）。systemd 安装方式应写入 `~/.config/wordwing-env` 并执行 `systemctl --user restart wordwing.service`；开发模式才使用启动终端中的 `export`。**不再依赖** 系统安装 **`xclip`**。
 
-**Wayland 全局快捷键：** 除 `tauri-plugin-global-shortcut` 外，在检测到 **`WAYLAND_DISPLAY`** 时会通过 **xdg-desktop-portal GlobalShortcuts** 再注册一遍；**首次启动或绑定失败重试时**，系统可能弹出对话框要求授权，请确认。若门户不可用，仍可用生词页 **「打开翻译浮层（划词）」**。
+**Wayland 全局快捷键：** GNOME 下使用 Shell `custom-keybindings` 调用 systemd 用户服务信号，绕开 GNOME 尚未提供的 GlobalShortcuts Portal；其它 Wayland 桌面通过 **xdg-desktop-portal GlobalShortcuts** 注册。若桌面不支持这两种方式，仍可用生词页 **「打开翻译浮层（划词）」**。
 
 ## 环境要求
 

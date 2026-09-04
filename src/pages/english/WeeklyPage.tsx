@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { Sparkles } from "lucide-react";
+import { Clock3, Sparkles } from "lucide-react";
 
 type ArticleSegment =
   | { kind: "text"; c: string }
@@ -20,6 +20,7 @@ type WeeklyStatusDto = {
   can_generate_this_week: boolean;
   week_label_zh: string;
   article: SavedArticle | null;
+  history: SavedArticle[];
   new_phrase_count: number;
   block_reason: string | null;
   dashscope_configured: boolean;
@@ -44,6 +45,7 @@ export function WeeklyPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [selectedGeneratedAt, setSelectedGeneratedAt] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -92,6 +94,7 @@ export function WeeklyPage() {
     setErr(null);
     try {
       await invoke<SavedArticle>("generate_weekly_article");
+      setSelectedGeneratedAt(null);
       await refresh();
     } catch (e) {
       setErr(String(e));
@@ -114,13 +117,38 @@ export function WeeklyPage() {
         ? "本自然周内还没有收藏词条。请先在「收藏」中加入词条后再生成。"
         : null;
 
-  const article = status?.article ?? null;
+  const history = status?.history ?? [];
+  const article = selectedGeneratedAt
+    ? history.find((item) => item.generated_at_rfc3339 === selectedGeneratedAt) ?? status?.article ?? null
+    : status?.article ?? null;
+
+  const translateWord = (word: string) => {
+    void invoke("retry_translate_with_text", { source: word }).catch((e) => setErr(String(e)));
+  };
+
+  const renderWords = (text: string) => {
+    const parts = text.split(/(\p{L}[\p{L}\p{M}'’-]*|\p{N}+)/gu);
+    return parts.map((part, index) =>
+      /^(\p{L}[\p{L}\p{M}'’-]*|\p{N}+)$/u.test(part) ? (
+        <span
+          key={index}
+          className="weekly-word"
+          title="双击翻译并可收藏"
+          onDoubleClick={() => translateWord(part)}
+        >
+          {part}
+        </span>
+      ) : (
+        <span key={index}>{part}</span>
+      ),
+    );
+  };
 
   return (
     <>
       <h2 className="page-title">周短文</h2>
       <p className="page-lead">
-        按<strong>当前自然周</strong>（ISO 周，周一为一周之始）内加入<strong>收藏</strong>的原文短语组稿；<strong>暂不限制</strong>每周生成次数，可随时点击生成（会覆盖当前展示的短文）。正文里用下划线标出所用词条。配合{" "}
+        按<strong>当前自然周</strong>（ISO 周，周一为一周之始）内加入<strong>收藏</strong>的原文短语组稿；每次生成都会保留历史。正文里用下划线标出所用词条，<strong>双击任意单词</strong>可打开独立翻译浮层并收藏。配合{" "}
         <Link to="/english/vocabulary">生词</Link>、<Link to="/english/collection">收藏</Link> 与{" "}
         <Link to="/english/review">复习</Link> 使用。
       </p>
@@ -183,10 +211,10 @@ export function WeeklyPage() {
               {article.segments.map((seg, i) =>
                 seg.kind === "vocab" ? (
                   <span key={i} className="weekly-vocab-underline">
-                    {seg.c}
+                    {renderWords(seg.c)}
                   </span>
                 ) : (
-                  <span key={i}>{seg.c}</span>
+                  <span key={i}>{renderWords(seg.c)}</span>
                 ),
               )}
             </p>
@@ -199,6 +227,32 @@ export function WeeklyPage() {
             在本自然周内先往「收藏」加入词条，再点击上方生成。每次组稿使用<strong>本周内收藏</strong>的词条（最多 36 条）；未展示短文时也会因尚无生成记录而显示本提示。
           </p>
         </div>
+      ) : null}
+
+      {history.length > 0 ? (
+        <section className="weekly-history card" aria-label="短文历史">
+          <div className="weekly-history__head">
+            <Clock3 size={18} aria-hidden />
+            <h3>生成历史</h3>
+            <span>{history.length} 篇</span>
+          </div>
+          <div className="weekly-history__list">
+            {history.map((item) => {
+              const active = article?.generated_at_rfc3339 === item.generated_at_rfc3339;
+              return (
+                <button
+                  type="button"
+                  className={active ? "weekly-history__item weekly-history__item--active" : "weekly-history__item"}
+                  key={item.generated_at_rfc3339}
+                  onClick={() => setSelectedGeneratedAt(item.generated_at_rfc3339)}
+                >
+                  <strong>{item.title}</strong>
+                  <span>{item.week_label_zh} · {formatGeneratedAt(item.generated_at_rfc3339)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       ) : null}
     </>
   );

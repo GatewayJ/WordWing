@@ -12,6 +12,14 @@ type VocabItem = {
   starred?: boolean;
   review_correct?: number;
   review_miss?: number;
+  review_interval_days?: number;
+  next_review_at?: string | null;
+};
+
+type ReviewQueue = {
+  items: VocabItem[];
+  total: number;
+  next_due_at: string | null;
 };
 
 function pickWeighted(items: VocabItem[]): VocabItem {
@@ -29,6 +37,7 @@ function pickWeighted(items: VocabItem[]): VocabItem {
 
 export function ReviewPage() {
   const [items, setItems] = useState<VocabItem[]>([]);
+  const [queue, setQueue] = useState<ReviewQueue>({ items: [], total: 0, next_due_at: null });
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [current, setCurrent] = useState<VocabItem | null>(null);
@@ -39,8 +48,12 @@ export function ReviewPage() {
     setLoading(true);
     setErr(null);
     try {
-      const list = await invoke<VocabItem[]>("list_vocabulary");
+      const [list, due] = await Promise.all([
+        invoke<VocabItem[]>("list_vocabulary"),
+        invoke<ReviewQueue>("get_review_queue"),
+      ]);
       setItems(list);
+      setQueue(due);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -82,10 +95,14 @@ export function ReviewPage() {
       setCurrent(null);
       return;
     }
-    if (!current || !items.some((x) => x.id === current.id)) {
-      pickNext(items);
+    // 到期队列为空时仍允许用户从收藏列表主动选择词条提前复习。
+    if (current && items.some((x) => x.id === current.id)) return;
+    if (queue.items.length > 0) {
+      pickNext(queue.items);
+    } else {
+      setCurrent(null);
     }
-  }, [loading, items, current, pickNext]);
+  }, [loading, items, queue.items, current, pickNext]);
 
   const stats = useMemo(() => {
     const c = items.reduce((s, i) => s + (i.review_correct ?? 0), 0);
@@ -114,28 +131,43 @@ export function ReviewPage() {
     setAnswered(true);
     try {
       await invoke("record_vocab_review", { id: current.id, remembered });
-      const list = await invoke<VocabItem[]>("list_vocabulary");
+      const [list, due] = await Promise.all([
+        invoke<VocabItem[]>("list_vocabulary"),
+        invoke<ReviewQueue>("get_review_queue"),
+      ]);
       setItems(list);
-      pickNext(list, current.id);
+      setQueue(due);
+      pickNext(due.items, current.id);
     } catch (e) {
       setErr(String(e));
+      setAnswered(false);
     }
   };
 
   const skip = () => {
-    if (items.length === 0 || !current) return;
+    if (!current) return;
     // 与答完后下一题一致：优先换一道，避免加权随机又抽到当前这条
-    pickNext(items, current.id);
+    const source = queue.items.length > 0 ? queue.items : items;
+    pickNext(source, current.id);
   };
+
+  const nextDueLabel = queue.next_due_at
+    ? new Date(queue.next_due_at).toLocaleString("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
 
   return (
     <>
       <h2 className="page-title">复习</h2>
       <p className="page-lead">
-        从<strong>生词本</strong>随机抽题（答错多的与带星标的会略更常出现）。左侧可浏览全部<strong>收藏</strong>，点一条即可针对该词练习；先看原文，默想译文后再揭晓。
+        按间隔重复计划抽取<strong>到期词条</strong>；答对后间隔逐步增长，答错后约 10 分钟再次出现。到期队列内优先抽取错题，左侧收藏也可提前复习。
       </p>
       <p className="page-lead" style={{ marginTop: -16 }}>
-        共 <strong>{stats.n}</strong> 条 · 累计答对 <strong>{stats.c}</strong> · 答错{" "}
+        待复习 <strong>{queue.items.length}</strong> 条 · 共 <strong>{stats.n}</strong> 条 · 累计答对 <strong>{stats.c}</strong> · 答错{" "}
         <strong>{stats.m}</strong>
         {stats.n === 0 && (
           <>
@@ -156,6 +188,23 @@ export function ReviewPage() {
       ) : items.length === 0 ? (
         <div className="card">
           <p>生词本为空，无法复习。</p>
+        </div>
+      ) : !current ? (
+        <div className="card">
+          <p><strong>本轮复习已完成。</strong></p>
+          <p className="page-lead" style={{ marginBottom: 0 }}>
+            {nextDueLabel ? `下一条计划复习时间：${nextDueLabel}` : "暂时没有后续复习计划。"}
+          </p>
+          {starredItems.length > 0 ? (
+            <div className="review-complete__early">
+              <span className="cell-muted">提前复习收藏：</span>
+              {starredItems.slice(0, 8).map((item) => (
+                <button type="button" className="btn-secondary btn-small" key={item.id} onClick={() => focusStarred(item.id)}>
+                  {item.source_text}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : current ? (
         <div className="review-layout">
@@ -206,6 +255,9 @@ export function ReviewPage() {
               目标语言：<span>{current.target_lang}</span>
               {current.starred ? (
                 <span className="review-card__star"> ★ 收藏</span>
+              ) : null}
+              {(current.review_interval_days ?? 0) > 0 ? (
+                <span> · 当前间隔 {current.review_interval_days} 天</span>
               ) : null}
             </p>
             <p className="review-card__prompt">{current.source_text}</p>
